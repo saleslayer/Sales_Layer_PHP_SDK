@@ -1,5 +1,4 @@
 <?php
-
 /**
  * $Id$
  *
@@ -9,89 +8,68 @@
  * @version 1.0
  *
  */
-
 class slyr_SQL {
 
 	public $error;
+
     public $pdo  =false;
 
 	private $hostname;
 	private $username;
 	private $password;
-	private $database; 
+	private $database;
+    private $persistent = false;
 
-	private $persistent = false;
-
-	function __construct ($dbn, $usr, $pwd, $host = 'localhost') {
+    function __construct ($dbn, $usr, $pwd, $host = 'localhost') {
 
         $this->database = $dbn;
-		$this->username = $usr;
-		$this->password = $pwd;
-		$this->hostname = $host;
+        $this->username = $usr;
+        $this->password = $pwd;
+        $this->hostname = $host;
+        $this->connect();
+    }
 
-		$this->connect();
-	}
+    function prep_query ($query){
 
-	function prep_query ($query){
+        return $this->pdo->prepare($query);
+    }
 
-		return $this->pdo->prepare($query);
-	}
+    function connect(){
 
-	function connect(){
-
-		if (!$this->pdo) {
-
-			try {
-
-				$this->pdo=new PDO('mysql:dbname='.$this->database.';host='.$this->hostname,
-								   $this->username,
-								   $this->password,
-								   array(PDO::ATTR_PERSISTENT=>$this->persistent));
-
-			} catch (PDOException $e) {
-
-				$this->error = $e->getMessage();
-				//die($this->error);
-				return false;
-			}
-
-		} else {
-
-			$this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
-		}
-
+        if (!$this->pdo) {
+            try {
+                $this->pdo=new PDO('mysql:dbname='.$this->database.';host='.$this->hostname, $this->username, $this->password,
+                                   array(PDO::ATTR_PERSISTENT=>$this->persistent));
+            } catch (PDOException $e) {
+                $this->error = $e->getMessage();
+                return false;
+            }
+        } else {
+            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
+        }
         return true;
-	}
+    }
 
-	function execute ($query, $values = null) {
+    function execute ($query, $values = null) {
 
-		if      ($values == null)    $values = array();
-		else if (!is_array($values)) $values = array($values);
-
-		$stmt = $this->prep_query($query);
-
+        if      ($values == null)    $values = array();
+        else if (!is_array($values)) $values = array($values);
+        $stmt = $this->prep_query($query);
         if ($stmt->execute($values) === true) {
-
-	        if      (stripos($query, 'insert ' ) === 0)          { $out = $this->pdo->lastInsertId();        }
-			else if (preg_match('/^(select|show)\s+/i', $query)) { $out = $stmt->fetchAll(PDO::FETCH_ASSOC); }
-			else                                                 { $out=true;                                }
-
+            if      (stripos($query, 'insert ' ) === 0)          { $out = $this->pdo->lastInsertId();        }
+            else if (preg_match('/^(select|show)\s+/i', $query)) { $out = $stmt->fetchAll(PDO::FETCH_ASSOC); }
+            else                                                 { $out=true;                                }
             $this->error = '';
-
-		} else {
-
-	        $out = null;
-
-	        $err=$stmt->errorInfo();
-
+        } else {
+            $out = null;
+            $err=$stmt->errorInfo();
             $this->error = 'SQL error: ('.$err[1].') '.$err[2];
-		}
+        }
+        return $out;
+    }
 
-		return $out;
-	}
+    function lastInsertId() {
 
-	function lastInsertId() {
-
-		return $this->pdo->lastInsertId();
-	}
+        return $this->pdo->lastInsertId();
+    }
 }
