@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2015-09-26
- * @version 1.18
+ * @modified 2015-10-26
+ * @version 1.19
  *
  */
 
 class SalesLayer_Conn {
 
-    public  static $version_class               = '1.18';
+    public  static $version_class               = '1.19';
 
     public  static $url                         = 'api.saleslayer.com';
 
@@ -44,6 +44,7 @@ class SalesLayer_Conn {
     public  static $response_table_deleted_ids  = null;
     public  static $response_files_list         = null;
     public  static $response_offline_file       = null;
+    public  static $response_waiting_files      = null;
 
     private static $__error_list                = array(
 
@@ -516,6 +517,11 @@ class SalesLayer_Conn {
                     }
                 }
 
+                if (isset(self::$data_returned['waiting'])) {
+
+                    self::$response_waiting_files=self::$data_returned['waiting'];
+                }
+
                 return true;
             }
         }
@@ -947,4 +953,22 @@ class SalesLayer_Conn {
         return null;
 
     }
+
+    /**
+     * Get number of images or files waiting in process
+     *
+     * @return array
+     *
+     */
+
+    public static function get_response_waiting_files () {
+
+        if (is_array(self::$response_waiting_files) && count(self::$response_waiting_files)) {
+
+            return self::$response_waiting_files;
+        }
+
+        return null;
+    }
+
 }
