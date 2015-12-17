@@ -6,7 +6,7 @@
 	 * SalesLayer conn class usage
 	 */
 
-	if (!class_exists('SalesLayer_Conn')) require dirname(__FILE__).DIRECTORY_SEPARATOR.'SalesLayer-Conn.php';
+	if (!class_exists('SalesLayer_Conn')) require dirname(__FILE__).DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'SalesLayer-Conn.php';
 
 
     $connector_id = '__Sales_Layer_connector_code__';

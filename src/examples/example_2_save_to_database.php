@@ -6,7 +6,7 @@
 	 * SalesLayer updater class usage
 	 */
 
-	if (!class_exists('SalesLayer_Updater')) require dirname(__FILE__).DIRECTORY_SEPARATOR.'SalesLayer-Updater.php';
+	if (!class_exists('SalesLayer_Updater')) require dirname(__FILE__).DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'SalesLayer-Updater.php';
 
     $dbname       = '__test';
 	$dbhost       = 'localhost';

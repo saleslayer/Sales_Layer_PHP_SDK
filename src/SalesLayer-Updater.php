@@ -14,7 +14,7 @@
  *
  */
 
-if                                (!class_exists('SalesLayer_Conn')) include_once dirname(__FILE__).DIRECTORY_SEPARATOR.'SalesLayer-conn.php';
+if                                (!class_exists('SalesLayer_Conn')) include_once dirname(__FILE__).DIRECTORY_SEPARATOR.'SalesLayer-Conn.php';
 if (extension_loaded('PDO')) { if (!class_exists('slyr_SQL'))        include_once dirname(__FILE__).DIRECTORY_SEPARATOR.'lib/class.DBPDO.php'; }
 else if                           (!class_exists('slyr_SQL'))        include_once dirname(__FILE__).DIRECTORY_SEPARATOR.'lib/class.MySQL.php';
 

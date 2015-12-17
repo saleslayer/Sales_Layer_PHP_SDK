@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2015-10-26
- * @version 1.19
+ * @modified 2015-12-17
+ * @version 1.20
  *
  */
 
 class SalesLayer_Conn {
 
-    public  static $version_class               = '1.19';
+    public  static $version_class               = '1.20';
 
     public  static $url                         = 'api.saleslayer.com';
 
@@ -32,6 +32,8 @@ class SalesLayer_Conn {
 
     private static $__codeConn                  = null;
     private static $__secretKey                 = null;
+
+    private static $__group_muticategory        = false;
 
     public  static $data_returned               = null;
     public  static $response_api_version        = null;
@@ -136,8 +138,9 @@ class SalesLayer_Conn {
 
         $URL='http'.((self::$SSL) ? 's' : '').'://'.self::$url.'?code='.urlencode(self::$__codeConn).$get;
 
-        if ($last_update               !== null) $URL .= '&last_update='.(!is_numeric($last_update) ? strtotime($last_update) : $last_update);
-        if (self::$connect_API_version !== null) $URL .= '&ver='.urlencode(self::$connect_API_version);
+        if ($last_update                !== null)  $URL .= '&last_update='.(!is_numeric($last_update) ? strtotime($last_update) : $last_update);
+        if (self::$connect_API_version  !== null)  $URL .= '&ver='.urlencode(self::$connect_API_version);
+        if (self::$__group_muticategory !== false) $URL .= '&group_category_id=1';
 
         return $URL;
     }
@@ -235,6 +238,19 @@ class SalesLayer_Conn {
     public static function set_API_version ($version) {
 
         self::$connect_API_version = $version;
+    }
+
+    /**
+     * Set group multicategory products
+     *
+     * @param boolean $group
+     * @return void
+     *
+     */
+
+    public static function set_group_multicategory ($group) {
+
+        self::$__group_muticategory = $group;
     }
 
     /**
