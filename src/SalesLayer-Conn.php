@@ -279,7 +279,12 @@ class SalesLayer_Conn {
 
         if (self::hasConnector()) {
 
+            set_time_limit(0);
+
             $ch=curl_init(self::__get_api_url($last_update));
+
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1800); // 30 minutes * 60 seconds
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
             if (self::$SSL && self::$SSL_Cert) {
 
@@ -299,8 +304,6 @@ class SalesLayer_Conn {
 
                 if (isset($params['compression']) && $params['compression']) { curl_setopt($ch, CURLOPT_ENCODING, 'gzip'); }
             }
-
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
             $response = curl_exec($ch);
 
