@@ -146,6 +146,17 @@ class SalesLayer_Conn {
     }
 
     /**
+     * Clean previous error code
+     * 
+     */
+
+    private function __clean_error () {
+
+        self::$response_error         = 0;
+        self::$response_error_message = '';
+    }
+
+    /**
      * Set the Connector identification and secret key
      *
      * @param string $codeConn Connector Code Identificator
@@ -158,6 +169,8 @@ class SalesLayer_Conn {
 
         self::$__codeConn  = $codeConn;
         self::$__secretKey = $secretKey;
+
+        self::__clean_error();
     }
 
     /**
@@ -323,6 +336,8 @@ class SalesLayer_Conn {
                         self::__trigger_error('Wrong connector type: '.self::$data_returned['schema']['connector_type'], 105);
 
                     } else {
+
+                        self::__clean_error();
 
                         return self::__parsing_json_returned();
                     }

@@ -236,7 +236,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private function __initialize_database () {
 
-        if (!self::has_response_error()) {
+        if (!in_array(self::get_response_error(), array(103, 104))) {
 
             $config_table=self::$table_prefix.self::$table_config;
             $tables      =self::get_database_tables();
@@ -283,7 +283,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private static function __update_config () {
 
-        if (!self::has_response_error() && $code=addslashes(self::get_identification_code())) {
+        if (!in_array(self::get_response_error(), array(103, 104)) && $code=addslashes(self::get_identification_code())) {
 
             if (self::get_response_action() == 'refresh') {
 
@@ -517,7 +517,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private static function __get_config ($code='', $refresh=false) {
 
-        if (!self::has_response_error() && self::get_connectors_list()) {
+        if (!in_array(self::get_response_error(), array(103, 104)) && self::get_connectors_list()) {
 
             if (!$code) { $code=addslashes(self::get_identification_code()); }
 
@@ -706,59 +706,56 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public static function update ($params=null, $connector_type=null, $force_refresh=false) {
 
-        if (!self::has_response_error()) {
+        if ($code=self::get_identification_code()) {
 
-            if ($code=self::get_identification_code()) {
+            if (!self::$database_config) self::__get_config($code);
 
-                if (!self::$database_config) self::__get_config($code);
+            if ($force_refresh==true ||
+                (isset(self::$database_config['conn_code']) && self::get_identification_code()!=self::$database_config['conn_code'])) {
 
-                if ($force_refresh==true ||
-                    (isset(self::$database_config['conn_code']) && self::get_identification_code()!=self::$database_config['conn_code'])) {
+                self::$database_config['last_update']=null;
+            }
 
-                    self::$database_config['last_update']=null;
+            self::get_info(self::$database_config['last_update'], $params, $connector_type);
+
+            if (!self::has_response_error()) {
+
+                self::__update_config();
+
+                if ($force_refresh==true) { self::delete_all(false); }
+
+                self::get_database_tables();
+
+                $tables=array_keys(self::get_response_table_information());
+
+                foreach ($tables as $table) {
+
+                    $table=strtolower($table);
+
+                    if (!in_array(self::$table_prefix.$table, self::$database_tables)) {
+
+                        self::create_database_table($table);
+
+                    } else {
+
+                        self::update_database_table($table);
+                    }
                 }
 
-                self::get_info(self::$database_config['last_update'], $params, $connector_type);
-
-                if (!self::has_response_error()) {
-
-                    self::__update_config();
-
-                    if ($force_refresh==true) { self::delete_all(false); }
-
-                    self::get_database_tables();
-
-                    $tables=array_keys(self::get_response_table_information());
+                if (count(self::get_response_table_modified_ids()) || count(self::get_response_table_deleted_ids())) {
 
                     foreach ($tables as $table) {
 
-                        $table=strtolower($table);
-
-                        if (!in_array(self::$table_prefix.$table, self::$database_tables)) {
-
-                            self::create_database_table($table);
-
-                        } else {
-
-                            self::update_database_table($table);
-                        }
+                        self::update_database_table_data($table);
                     }
-
-                    if (count(self::get_response_table_modified_ids()) || count(self::get_response_table_deleted_ids())) {
-
-                        foreach ($tables as $table) {
-
-                            self::update_database_table_data($table);
-                        }
-                    }
-
-                    return true;
                 }
 
-            } else {
-
-                self::__trigger_error('Invalid connector code', 2);
+                return true;
             }
+
+        } else {
+
+            self::__trigger_error('Invalid connector code', 2);
         }
 
         return false;
@@ -773,7 +770,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public static function get_database_tables ($refresh=false) {
 
-        if (!self::has_response_error() && (self::$database_tables === null || $refresh == true)) {
+        if (self::$database_tables === null || $refresh == true) {
 
             $tables=self::$DB->execute(self::$SQL_list[]='SHOW TABLES');
 
@@ -847,7 +844,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $table=strtolower($table);
 
-        return ((!self::has_response_error() && isset(self::$database_tables[self::$table_prefix.$table])) ? true : false);
+        return (isset(self::$database_tables[self::$table_prefix.$table]) ? true : false);
     }
 
     /**
