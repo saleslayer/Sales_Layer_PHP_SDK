@@ -340,7 +340,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             self::get_connectors_list();
 
-            $mode=(in_array($code, self::$list_connectors['names'])  ? 'update' : 'insert');
+            $mode=((!isset(self::$list_connectors['names']) || in_array($code, self::$list_connectors['names']))  ? 'update' : 'insert');
 
             $SQL="$mode `".                  self::$table_prefix.self::$table_config."` set ".
                  "`conn_code` = '".          $code                                                         ."', ".
@@ -351,7 +351,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     "`default_language` = '".addslashes(self::get_response_default_language()             )."', ".
                     "`languages` = '".       addslashes(implode(',', self::get_response_languages_used()) )."', ".
                     "`conn_schema` = '".     addslashes(json_encode(self::get_response_connector_schema()))."', ".
-                     "`data_schema` = '".     addslashes(json_encode($schema)                              )."', "
+                    "`data_schema` = '".     addslashes(json_encode($schema)                              )."', "
                     :
                     ''
                  ).
@@ -399,11 +399,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if (!isset(self::$list_connectors['names']) || !count(self::$list_connectors['names'])) {
 
+            self::$list_connectors['names']=array();
+
             $list=self::$DB->execute(self::$SQL_list[]='select `conn_code` from `'.self::$table_prefix.self::$table_config.'`');
 
             if (count($list)) {
-
-                self::$list_connectors['names']=array();
 
                 foreach ($list as $v) { self::$list_connectors['names'][]=$v['conn_code']; }
             }
