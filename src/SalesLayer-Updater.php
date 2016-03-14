@@ -40,7 +40,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     private static $database_config = array();
 
     private static $updater_version = '1.10';
-    private static $api_version     = '1.16';
+    private static $api_version     = '1.17';
 
     private static $database_field_types = array(
 

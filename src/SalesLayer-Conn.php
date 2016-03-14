@@ -25,7 +25,7 @@ class SalesLayer_Conn {
     public  static $SSL_Key                     = null;
     public  static $SSL_CACert                  = null;
 
-    public  static $connect_API_version         = '1.16';
+    public  static $connect_API_version         = '1.17';
 
     public  static $response_error              = 0;
     public  static $response_error_message      = '';
