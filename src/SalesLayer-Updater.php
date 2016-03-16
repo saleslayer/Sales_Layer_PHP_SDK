@@ -194,7 +194,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      */
 
-    private function __set_database_credentials ($database=null, $username=null, $password=null, $hostname=null) {
+    private static function __set_database_credentials ($database=null, $username=null, $password=null, $hostname=null) {
 
         if ($database!=null) { self::$database = $database; }
         if ($database!=null) { self::$username = $username; }
@@ -547,7 +547,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 } else { return self::$database_config; }
             }
         }
-
+        
+        $config = isset($config) ? $config : null;
+        
         return self::$database_config = $config;
     }
 
@@ -1123,7 +1125,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     foreach ($schema as $field=>$info) {
 
-                        if ($info['has_multilingual']) {
+                        if (!empty($info['has_multilingual'])) {
 
                             $fields_conn[$info['name'].'_'.$info['language']]=$field;
 
