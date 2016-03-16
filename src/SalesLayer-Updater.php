@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2015-10-05
- * @version 1.10
+ * @modified 2016-03-16
+ * @version 1.11
  *
  */
 
@@ -39,7 +39,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     private static $database_fields = array();
     private static $database_config = array();
 
-    private static $updater_version = '1.10';
+    private static $updater_version = '1.11';
     private static $api_version     = '1.17';
 
     private static $database_field_types = array(
@@ -251,9 +251,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                      "`last_update` timestamp NOT NULL, ".
                      "`default_language` varchar(6) NOT NULL, ".
                      "`languages` varchar(512) NOT NULL, ".
-                     "`conn_schema` text CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, ".
-                     "`data_schema` text CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, ".
-                     "`conn_extra` text CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, ".
+                     "`conn_schema` mediumtext CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, ".
+                     "`data_schema` mediumtext CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, ".
+                     "`conn_extra` mediumtext CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, ".
                      "`updater_version` varchar(10) NOT NULL, ".
                      "PRIMARY KEY (`cnf_id`)".
                      ") ENGINE=MyISAM DEFAULT CHARSET=latin1 AUTO_INCREMENT=1";
