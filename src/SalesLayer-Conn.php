@@ -101,7 +101,7 @@ class SalesLayer_Conn {
      *
      */
 
-    private function __has_system_requirements () {
+    private static function __has_system_requirements () {
 
         if (!extension_loaded('curl')) {
 
@@ -120,7 +120,7 @@ class SalesLayer_Conn {
      * @return string
      */
 
-    private function __get_api_url ($last_update=false) {
+    private static function __get_api_url ($last_update=false) {
 
         if (self::$__secretKey != null) {
 
@@ -150,7 +150,7 @@ class SalesLayer_Conn {
      * 
      */
 
-    private function __clean_error () {
+    private static function __clean_error () {
 
         self::$response_error         = 0;
         self::$response_error_message = '';
