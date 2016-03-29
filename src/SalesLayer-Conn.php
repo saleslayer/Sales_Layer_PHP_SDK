@@ -66,7 +66,7 @@ class SalesLayer_Conn {
     );
 
     /**
-     * Constructor - if you're not using the classally
+     * Constructor - if you're not using the class statically
      *
      * @param string $codeConn Code Connector Identificator key
      * @param string $secretKey Secret key
