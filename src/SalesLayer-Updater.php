@@ -68,7 +68,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     );
 
     /**
-     * Constructor - if you're not using the classally
+     * Constructor - if you're not using the class statically
      *
      * @param string $database Database name
      * @param string $username Username
@@ -380,16 +380,16 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      */
 
     private function __refresh_last_update_config () {
-
-        if ($this->get_response_time()) {
-
-            $SQL = "update `last_update` = '".addslashes($this->get_response_time())."' where `conn_code`='$code' limit 1";
-
+	    
+        if ($this->get_response_time() && $code=addslashes($this->get_identification_code())) {
+	        
+            $SQL = "update `".$this->table_prefix.$this->table_config."` set last_update='".addslashes($this->get_response_time())."' where conn_code='$code' limit 1";
+            
             if ($this->DB->execute($this->SQL_list[] = $SQL)) return true;
-
+            
             $this->__trigger_error($this->DB->error." ($SQL)", 104);
         }
-
+        
         return false;
     }
 
