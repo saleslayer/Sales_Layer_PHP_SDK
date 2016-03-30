@@ -1579,7 +1579,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $del_ids=array();
 
-        if ($code && $this->database_config) {
+        if ($this->__get_config($code)!==null) {
 
             $SQL="delete from `".$this->table_prefix.$this->table_config."` where `conn_code`='$code' limit 1;";
 
@@ -1588,7 +1588,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 $this->__trigger_error($this->DB->error." ($SQL)", 104);
             }
 
-            if ($clean_items) {
+            if ($clean_items && $this->response_error!=104) {
 
                 $tables=(count($this->database_config['data_schema']) ? array_keys($this->database_config['data_schema']) : array());
 
