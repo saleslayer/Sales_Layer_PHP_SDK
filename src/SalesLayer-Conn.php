@@ -134,8 +134,8 @@ class SalesLayer_Conn {
 
         $URL='http'.(($this->SSL) ? 's' : '').'://'.$this->url.'?code='.urlencode($this->__codeConn).$get;
 
-        if ($last_update                !== null)   $URL .= '&last_update='.(!is_numeric($last_update) ? strtotime($last_update) : $last_update);
-        if ($this->connect_API_version  !== null)   $URL .= '&ver='.urlencode($this->connect_API_version);
+        if ($last_update)                           $URL .= '&last_update='.(!is_numeric($last_update) ? strtotime($last_update) : $last_update);
+        if ($this->connect_API_version   !== null)  $URL .= '&ver='.urlencode($this->connect_API_version);
         if ($this->__group_multicategory !== false) $URL .= '&group_category_id=1';
 
         return $URL;
