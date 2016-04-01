@@ -62,9 +62,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         'text'      =>'CHARACTER SET {collation} NOT NULL',
         'mediumtext'=>'CHARACTER SET {collation} NOT NULL',
         'bool'      =>'NOT NULL',
-        'float'     =>'NOT NULL',
+        'double'    =>'NOT NULL',
         'datetime'  =>'NOT NULL',
-        'int'       =>'NOT NULL'
+        'int'       =>'NOT NULL',
+        'bigint'    =>'NOT NULL',
     );
 
     /**
@@ -239,20 +240,20 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if (!in_array($config_table, $tables)) {
 
-                $SQL="CREATE TABLE IF NOT EXISTS `$config_table` (".
-                     '`cnf_id` int(11) NOT NULL AUTO_INCREMENT, '.
-                     '`conn_code` varchar(32) NOT NULL, '.
-                     '`conn_secret` varchar(32) NOT NULL, '.
-                     '`comp_id` int(11) NOT NULL, '.
-                     '`last_update` timestamp NOT NULL, '.
-                     '`default_language` varchar(6) NOT NULL, '.
-                     '`languages` varchar(512) NOT NULL, '.
-                     '`conn_schema` mediumtext CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, '.
-                     '`data_schema` mediumtext CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, '.
-                     '`conn_extra` mediumtext CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL, '.
-                     '`updater_version` varchar(10) NOT NULL, '.
-                     'PRIMARY KEY (`cnf_id`)'.
-                     ') ENGINE='.$this->table_engine.' DEFAULT CHARSET=latin1 AUTO_INCREMENT=1';
+                $SQL=$this->__fix_collation("CREATE TABLE IF NOT EXISTS `$config_table` (".
+                                            '`cnf_id` int(11) NOT NULL AUTO_INCREMENT, '.
+                                            '`conn_code` varchar(32) NOT NULL, '.
+                                            '`conn_secret` varchar(32) NOT NULL, '.
+                                            '`comp_id` int(11) NOT NULL, '.
+                                            '`last_update` timestamp NOT NULL, '.
+                                            '`default_language` varchar(6) NOT NULL, '.
+                                            '`languages` varchar(512) NOT NULL, '.
+                                            '`conn_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
+                                            '`data_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
+                                            '`conn_extra` mediumtext CHARACTER SET {collation} NOT NULL, '.
+                                            '`updater_version` varchar(10) NOT NULL, '.
+                                            'PRIMARY KEY (`cnf_id`)'.
+                                            ') ENGINE='.$this->table_engine.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
 
                 if ($this->DB->execute($this->SQL_list[] = $SQL)) {
 
@@ -603,17 +604,19 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private function __test_language ($language) {
 
-        $languages=$this->get_languages();
+        $languages = $this->get_languages();
 
         if (!is_string($language)) {
 
-            $language=$this->get_default_language();
+            $language = $this->get_default_language();
 
-            if (!in_array($language, $languages)) { $language=reset($languages); }
+            if (!in_array($language, $languages)) { $language = reset($languages); }
 
         } else {
 
-            if (!in_array($language, $languages)) { $language=($default=$this->get_default_language() ? $default : reset($languages)); }
+            $language = $this->get_default_language();
+
+            if (!$language) { $language = reset($languages); }
         }
 
         return $language;
@@ -968,7 +971,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $this->DB->execute($this->SQL_list[]="DROP TABLE IF EXISTS `$sly_table`");
 
-                $SQL=$this->__fix_collation("CREATE TABLE `$sly_table` ($fields) ENGINE=".$this->table_engine.' DEFAULT CHARSET=latin1 AUTO_INCREMENT=1');
+                $SQL=$this->__fix_collation("CREATE TABLE `$sly_table` ($fields) ENGINE=".$this->table_engine.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
 
                 if ($this->DB->execute($this->SQL_list[] = $SQL)) {
 
