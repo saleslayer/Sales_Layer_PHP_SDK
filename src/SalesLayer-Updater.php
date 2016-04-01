@@ -453,12 +453,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function get_connectors_info ($code=null, $refresh_info = false) {
 
-        if ($refresh_info){ unset($this->list_connectors['data']); }
+        if ($refresh_info) { unset($this->list_connectors['data']); }
 
         if (!isset($this->list_connectors['data']) || !count($this->list_connectors['data']) || ($code && !isset($this->list_connectors['data'][$code]))) {
 
-            $list=$this->DB->execute($this->SQL_list[]='select * from `'.$this->table_prefix.$this->table_config.'`'.
-                                                        (isset($this->list_connectors['data'][$code]) ? ' where `conn_code`=\''.addslashes($code).'\' limit 1' : ''));
+            $SQL = 'select * from `'.$this->table_prefix.$this->table_config.'`'.
+                   (isset($this->list_connectors['data'][$code]) ? ' where `conn_code`=\''.addslashes($code).'\' limit 1' : '');
+
+            $list = $this->DB->execute($this->SQL_list[] = $SQL);
 
             if (count($list)) {
 
@@ -471,7 +473,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     $this->list_connectors['data'][$v['conn_code']]=$v;
                 }
 
-                unset($v, $w);
+                unset($v, $w, $list);
             }
         }
 
@@ -492,7 +494,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $SQL='select `conn_extra` from `'.$this->table_prefix.$this->table_config.'` where `conn_code`=\''.addslashes($code).'\' limit 1';
 
-        if ($res=$this->DB->execute($this->SQL_list[] = $SQL)) {
+        if ($res = $this->DB->execute($this->SQL_list[] = $SQL)) {
 
             return json_decode($res[0]['conn_extra'], 1);
         }
