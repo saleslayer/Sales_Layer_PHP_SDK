@@ -26,6 +26,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     public  $username = null;
     public  $password = null;
     public  $hostname = null;
+    public  $charset  = 'utf8';
 
     public  $table_prefix = 'slyr_';
     public  $table_config = '__api_config';
@@ -162,7 +163,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             return false;
         }
 
-        $this->DB->execute("SET NAMES 'utf8';");
+        $this->DB->execute($this->SQL_list[] = "SET NAMES '{$this->charset}';");
+
+        $dt = new DateTime();
+
+        $this->DB->execute($this->SQL_list[] = "SET time_zone='".$dt->format('P')."';");
 
         return true;
     }
@@ -177,7 +182,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function set_table_prefix ($prefix) {
 
-        $this->table_prefix=$prefix;
+        $this->table_prefix = $prefix;
     }
 
     /**
@@ -235,25 +240,25 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if (!in_array($this->get_response_error(), array(103, 104))) {
 
-            $config_table=$this->table_prefix.$this->table_config;
-            $tables      =$this->get_database_tables();
+            $config_table = $this->table_prefix.$this->table_config;
+            $tables       = $this->get_database_tables();
 
             if (!in_array($config_table, $tables)) {
 
-                $SQL=$this->__fix_collation("CREATE TABLE IF NOT EXISTS `$config_table` (".
-                                            '`cnf_id` int(11) NOT NULL AUTO_INCREMENT, '.
-                                            '`conn_code` varchar(32) NOT NULL, '.
-                                            '`conn_secret` varchar(32) NOT NULL, '.
-                                            '`comp_id` int(11) NOT NULL, '.
-                                            '`last_update` timestamp NOT NULL, '.
-                                            '`default_language` varchar(6) NOT NULL, '.
-                                            '`languages` varchar(512) NOT NULL, '.
-                                            '`conn_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
-                                            '`data_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
-                                            '`conn_extra` mediumtext CHARACTER SET {collation} NOT NULL, '.
-                                            '`updater_version` varchar(10) NOT NULL, '.
-                                            'PRIMARY KEY (`cnf_id`)'.
-                                            ') ENGINE='.$this->table_engine.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
+                $SQL = $this->__fix_collation("CREATE TABLE IF NOT EXISTS `$config_table` (".
+                                              '`cnf_id` int(11) NOT NULL AUTO_INCREMENT, '.
+                                              '`conn_code` varchar(32) NOT NULL, '.
+                                              '`conn_secret` varchar(32) NOT NULL, '.
+                                              '`comp_id` int(11) NOT NULL, '.
+                                              '`last_update` timestamp NOT NULL, '.
+                                              '`default_language` varchar(6) NOT NULL, '.
+                                              '`languages` varchar(512) NOT NULL, '.
+                                              '`conn_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
+                                              '`data_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
+                                              '`conn_extra` mediumtext CHARACTER SET {collation} NOT NULL, '.
+                                              '`updater_version` varchar(10) NOT NULL, '.
+                                              'PRIMARY KEY (`cnf_id`)'.
+                                              ') ENGINE='.$this->table_engine.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
 
                 if ($this->DB->execute($this->SQL_list[] = $SQL)) {
 
@@ -457,7 +462,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if (count($list)) {
 
-                if (!$code or !isset($this->list_connectors['data'])) $this->list_connectors['data']=array();
+                if (!$code || !isset($this->list_connectors['data'])) $this->list_connectors['data']=array();
 
                 foreach ($list as &$v) {
 
@@ -630,22 +635,23 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private function __get_mysql_version () {
 
-        if ($this->mysql_version) {
+        if ($this->mysql_version == null) {
 
-            $SQL='SHOW VARIABLES LIKE "%version%"';
+            $SQL = 'SHOW VARIABLES LIKE "%version%"';
 
-            if (!($res=$this->DB->execute($this->SQL_list[] = $SQL))) {
+            if (!($res = $this->DB->execute($this->SQL_list[] = $SQL))) {
 
                 $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
             } else {
 
-                $list=explode('.', $res['version']);
-                $ver =array_shift($list);
+                foreach ($res as $v) { if ($v['Variable_name']=='version') { $list = explode('.', $v['Value']); break; }}
 
-                if (count($list)) { $ver.='.'; foreach ($list as $l) { $ver.=sprintf('%02s', $l); }}
+                $ver = array_shift($list);
 
-                $this->mysql_version=floatval($ver);
+                if (count($list)) { $ver .= '.'; foreach ($list as $l) { $ver .= sprintf('%02s', $l); }}
+
+                $this->mysql_version = floatval($ver);
             }
         }
 
@@ -658,11 +664,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      * @return string
      */
 
-    private function __identifies_utf_mode () {
+    private function __identifies_charset_mode () {
 
         $ver = $this->__get_mysql_version();
 
-        return (($ver===null or $ver<5.0503) ? 'utf8 COLLATE utf8_general_ci' : 'utf8mb4 COLLATE utf8mb4_unicode_ci');
+        return (($ver===null || $ver<5.0503 || $this->charset!='utf8') ? $this->charset.' COLLATE '.$this->charset.'_general_ci'
+                                                                         :
+                                                                         'utf8mb4 COLLATE utf8mb4_unicode_ci');
     }
 
     /**
@@ -673,7 +681,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private function __fix_collation ($sql) {
 
-        return str_replace('{collation}', $this->__identifies_utf_mode(), $sql);
+        return str_replace('{collation}', $this->__identifies_charset_mode(), $sql);
     }
 
     /**
