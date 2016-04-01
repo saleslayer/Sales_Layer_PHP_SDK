@@ -257,7 +257,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                      '`conn_extra` mediumtext CHARACTER SET '. $this->__identifies_charset_mode().' NOT NULL, '.
                      '`updater_version` varchar(10) NOT NULL, '.
                      'PRIMARY KEY (`cnf_id`)'.
-                     ') ENGINE='.$this->table_engine.' DEFAULT CHARSET=latin1 AUTO_INCREMENT=1';
+                     ') ENGINE='.$this->table_engine.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1';
+                     
+                $SQL=$this->__fix_collation($SQL);
 
                 if ($this->DB->execute($this->SQL_list[] = $SQL)) {
 
@@ -461,7 +463,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if (count($list)) {
 
-                if (!$code or !isset($this->list_connectors['data'])) $this->list_connectors['data']=array();
+                if (!$code || !isset($this->list_connectors['data'])) $this->list_connectors['data']=array();
 
                 foreach ($list as &$v) {
 
@@ -665,7 +667,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $ver = $this->__get_mysql_version();
 
-        return (($ver===null or $ver<5.0503 or $this->charset!='utf8') ? $this->charset.' COLLATE '.$this->charset.'_general_ci'
+        return (($ver===null || $ver<5.0503 || $this->charset!='utf8') ? $this->charset.' COLLATE '.$this->charset.'_general_ci'
                                                                          :
                                                                          'utf8mb4 COLLATE utf8mb4_unicode_ci');
     }
@@ -976,7 +978,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $this->DB->execute($this->SQL_list[]="DROP TABLE IF EXISTS `$sly_table`");
 
-                $SQL=$this->__fix_collation("CREATE TABLE `$sly_table` ($fields) ENGINE=".$this->table_engine.' DEFAULT CHARSET=latin1 AUTO_INCREMENT=1');
+                $SQL=$this->__fix_collation("CREATE TABLE `$sly_table` ($fields) ENGINE=".$this->table_engine.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
 
                 if ($this->DB->execute($this->SQL_list[] = $SQL)) {
 
