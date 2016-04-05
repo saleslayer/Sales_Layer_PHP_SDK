@@ -37,7 +37,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     public  $DB       = null;
     public  $SQL_list = array();
 
-    public  $debbug   = true; // <-- false / true / 'file'
+    public  $time_unlimit = true;
+    public  $debbug       = true; // <-- false / true / 'file'
 
     private $database_tables = null;
     private $database_fields = array();
@@ -89,6 +90,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         if ($this->__has_system_requirements() && $database!=null) {
 
                $this->connect($database, $username, $password, $hostname, $codeConn, $secretKey, $SSL, $url);
+
+               if (!$this->response_error && $this->time_unlimit) { set_time_limit(0); }
         }
     }
 
