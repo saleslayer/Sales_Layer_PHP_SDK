@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2016-03-21
- * @version 1.12
+ * @modified 2016-04-06
+ * @version 1.13
  *
  */
 
@@ -20,25 +20,23 @@ else if                           (!class_exists('slyr_SQL'))        include_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version = '1.12';
+    public  $updater_version = '1.13';
 
-    public  $database = null;
-    public  $username = null;
-    public  $password = null;
-    public  $hostname = null;
-    public  $charset  = 'utf8';
+    public  $database        = null;
+    public  $username        = null;
+    public  $password        = null;
+    public  $hostname        = null;
+    public  $charset         = 'utf8';
 
-    public  $table_prefix = 'slyr_';
-    public  $table_config = '__api_config';
-    public  $table_engine = 'InnoDB';
+    public  $table_prefix    = 'slyr_';
+    public  $table_config    = '__api_config';
+    public  $table_engine    = 'InnoDB';
 
     public  $list_connectors = array();
 
-    public  $DB       = null;
-    public  $SQL_list = array();
-
-    public  $time_unlimit = true;
-    public  $debbug       = true; // <-- false / true / 'file'
+    public  $DB              = null;
+    public  $SQL_list        = array();
+    public  $debbug          = true; // <-- false / true / 'file'
 
     private $database_tables = null;
     private $database_fields = array();
@@ -90,8 +88,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         if ($this->__has_system_requirements() && $database!=null) {
 
                $this->connect($database, $username, $password, $hostname, $codeConn, $secretKey, $SSL, $url);
-
-               if (!$this->response_error && $this->time_unlimit) { set_time_limit(0); }
         }
     }
 

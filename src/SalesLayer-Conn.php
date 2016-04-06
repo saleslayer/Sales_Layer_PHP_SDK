@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2016-03-21
- * @version 1.21
+ * @modified 2016-04-06
+ * @version 1.22
  *
  */
 
 class SalesLayer_Conn {
 
-    public  $version_class               = '1.21';
+    public  $version_class               = '1.22';
 
     public  $url                         = 'api.saleslayer.com';
 
@@ -47,6 +47,10 @@ class SalesLayer_Conn {
     public  $response_files_list         = null;
     public  $response_offline_file       = null;
     public  $response_waiting_files      = null;
+
+    public  $time_unlimit                = true;
+    public  $memory_limit                = '';      // <-- examples: 512M or 1024M
+    public  $user_abort                  = false;
 
     private $__error_list                = array(
 
@@ -288,7 +292,9 @@ class SalesLayer_Conn {
 
         if ($this->hasConnector()) {
 
-            set_time_limit(0);
+            if ($this->time_unlimit) { set_time_limit(0); }
+            if ($this->memory_limit) { ini_set('memory_limit', $this->memory_limit); }
+            if ($this->user_abort)   { ignore_user_abort(true); }
 
             $ch = curl_init($this->__get_api_url($last_update));
 
