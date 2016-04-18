@@ -1225,40 +1225,44 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         }
                     }
 
-                    foreach ($data as $register) {
+                    foreach ($data as $k=>&$register) {
 
-                       $id=addslashes($register['id']);  $fields='';
+                       $id = addslashes($register['id']);  $fields='';
 
-                        foreach ($register as $field=>$data) {
+                       foreach ($register as $field=>&$f_data) {
 
                             if ($field=='data') {
 
-                                foreach ($data as $field=>$value) {
+                                foreach ($f_data as $d_field=>&$value) {
 
-                                    if (isset($fields_conn[$field])) {
+                                    if (isset($fields_conn[$d_field])) {
 
                                         if (is_array($value)) {
 
-                                            $fields.=(($fields) ? ', ' : '')."`{$fields_conn[$field]}` = '".
-                                                        ($schema[$field]['type']=='list' ? addslashes(implode(',' , $value)) : @json_encode($value)).
+                                            $fields.=(($fields) ? ', ' : '')."`{$fields_conn[$d_field]}` = '".
+                                                        ($schema[$d_field]['type']=='list' ? addslashes(implode(',' , $value)) : @json_encode($value)).
                                                      "'";
 
                                         } else {
 
-                                            $fields.=(($fields) ? ', ' : '')."`{$fields_conn[$field]}` = '".  addslashes($value)."'";
+                                            $fields.=(($fields) ? ', ' : '')."`{$fields_conn[$d_field]}` = '".  addslashes($value)."'";
                                         }
                                     }
                                 }
 
+                                unset($value);
+
                             } else if (isset($fields_conn[$field])) {
 
-                                if(is_array($data)) {
-                                    $newdata = implode(',', $data);
-                                    $data = $newdata;
-                                }
-                                $fields.=(($fields) ? ', ' : '')."`{$fields_conn[$field]}` = '".  addslashes($data)."'";
+                                if (is_array($f_data)) { $f_data = implode(',', $f_data); }
+
+                                $fields.=(($fields) ? ', ' : '')."`{$fields_conn[$field]}` = '".  addslashes($f_data)."'";
                             }
+
+                            unset($register[$field]);
                         }
+
+                        unset($register, $f_data);
 
                         if ($fields) {
 
@@ -1280,6 +1284,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 $errors=true; break;
                             }
                         }
+
+                        unset($data[$k]);
                     }
                 }
             }
