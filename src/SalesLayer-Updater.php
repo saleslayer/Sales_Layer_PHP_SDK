@@ -1252,6 +1252,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             } else if (isset($fields_conn[$field])) {
 
+                                if(is_array($data)) {
+                                    $newdata = implode(',', $data);
+                                    $data = $newdata;
+                                }
                                 $fields.=(($fields) ? ', ' : '')."`{$fields_conn[$field]}` = '".  addslashes($data)."'";
                             }
                         }
