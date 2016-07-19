@@ -212,9 +212,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private function __has_system_requirements () {
 
-        if (!extension_loaded('mysql')) {
+        if (!extension_loaded('mysql') && !extension_loaded('PDO')) {
 
-            $this->__trigger_error ('Missing PHP MySQL extension', 103);
+            $this->__trigger_error ('Missing PHP database extensions', 103);
 
             return false;
 
