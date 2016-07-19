@@ -315,7 +315,7 @@ class SalesLayer_Conn {
             if (is_array($params)) {
 
                 curl_setopt($ch, CURLOPT_POST,       true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
 
                 if (isset($params['compression']) && $params['compression']) { curl_setopt($ch, CURLOPT_ENCODING, 'gzip'); }
             }
@@ -324,7 +324,7 @@ class SalesLayer_Conn {
 
             if ($response !== false) {
 
-                $this->data_returned = @json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
+                $this->data_returned = json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
 
                 curl_close($ch);
 
