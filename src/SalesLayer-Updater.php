@@ -351,7 +351,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                  "`conn_secret` = '".        addslashes($this->get_identification_secret())                  ."', ".
                  "`comp_id` = '".            addslashes($this->get_response_company_ID()                    )."', ".
                  ($update_last_upd ?
-                    "`last_update` = '"     .addslashes($this->get_response_time(false)).                     "', " : '').
+                    "`last_update` = '"     .addslashes($this->get_response_time()).                          "', " : '').
                  (($this->get_response_action() == 'refresh') ?
                     "`default_language` = '".addslashes($this->get_response_default_language()              )."', ".
                     "`languages` = '".       addslashes(implode(',', $this->get_response_languages_used())  )."', ".
@@ -388,7 +388,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         
         if ($this->get_response_time(false) && $code=addslashes($this->get_identification_code())) {
 
-            $SQL = "update `".$this->table_prefix.$this->table_config."` set last_update='".addslashes($this->get_response_time(false))."' where conn_code='$code' limit 1";
+            $SQL = "update `".$this->table_prefix.$this->table_config."` set last_update='".addslashes($this->get_response_time())."' where conn_code='$code' limit 1";
             
             if ($this->DB->execute($this->SQL_list[] = $SQL)) return true;
             
@@ -568,7 +568,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                             'data_schema'     =>json_decode( $data['0']['data_schema'], 1)
                         );
 
-                        if ( $config['last_update']=='0000-00-00 00:00') { $config['last_update']=null; }
+                        if (substr($config['last_update'], 0, 10)=='0000-00-00') { $config['last_update']=null; }
                     }
 
                 } else { return $this->database_config; }

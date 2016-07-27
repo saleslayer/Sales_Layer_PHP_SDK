@@ -721,7 +721,7 @@ class SalesLayer_Conn {
 
     public function get_response_time ($mode='datetime') {
 
-        return ($this->response_time) ? (($mode==='datetime') ? date('Y-m-d H:i:s', $this->response_time) : $this->response_time) : false;
+        return ($this->response_time ? ($mode==='datetime' ? date('Y-m-d H:i:s', $this->response_time) : $this->response_time) : false);
     }
 
     /**
