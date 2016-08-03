@@ -242,7 +242,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                               '`conn_code` varchar(32) NOT NULL, '.
                                               '`conn_secret` varchar(32) NOT NULL, '.
                                               '`comp_id` int(11) NOT NULL, '.
-                                              '`last_update` timestamp NOT NULL, '.
+                                              '`last_update` int NOT NULL, '.
                                               '`default_language` varchar(6) NOT NULL, '.
                                               '`languages` varchar(512) NOT NULL, '.
                                               '`conn_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
@@ -363,7 +363,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     "`conn_secret` = '".        addslashes($this->get_identification_secret())                  ."', ".
                     "`comp_id` = '".            addslashes($this->get_response_company_ID()                    )."', ".
                     ($update_last_upd ?
-                       "`last_update` = '"     .addslashes($this->get_response_time()).                          "', " : '').
+                       "`last_update` = '"     .addslashes($this->get_response_time(false)).                     "', " : '').
                     ($this->get_response_action() == 'refresh' ?
                        "`default_language` = '".addslashes($this->get_response_default_language()              )."', ".
                        "`languages` = '".       addslashes(implode(',', $this->get_response_languages_used())  )."', ".
@@ -400,7 +400,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         
         if ($this->get_response_time(false) && $code=addslashes($this->get_identification_code())) {
 
-            $SQL = "update `".$this->table_prefix.$this->table_config."` set last_update='".addslashes($this->get_response_time())."' where conn_code='$code' limit 1";
+            $SQL = "update `".$this->table_prefix.$this->table_config."` set last_update='".addslashes($this->get_response_time(false))."' where conn_code='$code' limit 1";
             
             if ($this->DB->execute($this->SQL_list[] = $SQL)) return true;
             
@@ -581,7 +581,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                             'data_schema'      => json_decode( $data['0']['data_schema'], 1)
                         );
 
-                        if (substr($config['last_update'], 0, 10)=='0000-00-00') { $config['last_update'] = null; }
+                        if (!$config['last_update']) { $config['last_update'] = null; }
                     }
 
                 } else { return $this->database_config; }
@@ -919,11 +919,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      * @return string
      */
 
-    public function get_database_last_update () {
+    public function get_database_last_update ($mode='datetime') {
 
         $this->__test_config_initialized();
 
-        return (isset($this->database_config['last_update']) ? $this->database_config['last_update'] : null);
+        $time = (isset($this->database_config['last_update']) ? $this->database_config['last_update'] : null);
+
+        return  ((isset($time) and $mode=='datetime') ? date('Y-m-d H:i:s', $time) : $time);
     }
 
     /**
