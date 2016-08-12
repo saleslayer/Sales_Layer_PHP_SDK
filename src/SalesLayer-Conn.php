@@ -10,13 +10,13 @@
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
  * @modified 2016-04-06
- * @version 1.22
+ * @version 1.23
  *
  */
 
 class SalesLayer_Conn {
 
-    public  $version_class               = '1.22';
+    public  $version_class               = '1.23';
 
     public  $url                         = 'api.saleslayer.com';
 
@@ -32,6 +32,7 @@ class SalesLayer_Conn {
 
     private $__codeConn                  = null;
     private $__secretKey                 = null;
+    private $__keyCypher                 = 'sha256'; // <-- or 'sha1'
 
     private $__group_multicategory       = false;
 
@@ -124,19 +125,20 @@ class SalesLayer_Conn {
 
         if ($this->__secretKey != null) {
 
-            $time = time();
-            $unic = mt_rand();
+            $time    = time();
+            $unic    = mt_rand();
+            $key     =  $this->__codeConn.$this->__secretKey.$time.$unic;
+            $key     = ($this->__keyCypher == 'sha256' ? hash('sha256', $key) : sha1($key));
+            $key_var = ($this->__keyCypher == 'sha256' ? 'key256' : 'key');
 
-            $key  = sha1($this->__codeConn.$this->__secretKey.$time.$unic);
-
-            $get  = "&time=$time&unique=$unic&key=$key";
+            $get     = "&time=$time&unique=$unic&$key_var=$key";
 
         } else {
 
-            $get  = '';
+            $get     = '';
         }
 
-        $URL='http'.(($this->SSL) ? 's' : '').'://'.$this->url.'?code='.urlencode($this->__codeConn).$get;
+        $URL = 'http'.(($this->SSL) ? 's' : '').'://'.$this->url.'?code='.urlencode($this->__codeConn).$get;
 
         if ($last_update)                           $URL .= '&last_update='.(!is_numeric($last_update) ? strtotime($last_update) : $last_update);
         if ($this->connect_API_version   !== null)  $URL .= '&ver='.urlencode($this->connect_API_version);
@@ -402,7 +404,6 @@ class SalesLayer_Conn {
             } else {
 
                 $this->response_action      = $this->data_returned['action'];
-
                 $this->response_tables_info =
                 $this->response_files_list  =
                 $image_order_sizes          = array();
