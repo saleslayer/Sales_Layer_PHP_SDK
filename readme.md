@@ -14,7 +14,7 @@ Samples
 	// Instantiate the class
 	$SLconn = new SalesLayer_Conn($connector_id, $secret_key);
 
-	$SLconn->set_API_version('1.16');
+	$SLconn->set_API_version('1.17');
 
 	$SLconn->get_info();
 
