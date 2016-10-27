@@ -1,0 +1,13 @@
+{
+    "name": "saleslayer/saleslayer-php-sdk",
+    "description": "SalesLayer PHP SDK",
+    "require": {
+        "php": ">=5.0.0"
+    },
+    "autoload": {
+        "classmap": [
+        	"src/SalesLayer-Conn.php",
+        	"src/SalesLayer-Updater.php"
+        ]
+    }
+}
