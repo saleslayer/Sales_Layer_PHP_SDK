@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2016-04-06
- * @version 1.23
+ * @modified 2017-02-01
+ * @version 1.24
  *
  */
 
 class SalesLayer_Conn {
 
-    public  $version_class               = '1.23';
+    public  $version_class               = '1.24';
 
     public  $url                         = 'api.saleslayer.com';
 
@@ -286,11 +286,12 @@ class SalesLayer_Conn {
      * @param timestamp $last_update last updated database
      * @param array $params extra parameters for the API
      * @param string $connector_type strict specification of connector type
+     * @param boolean $add_reference_files return file or image reference names
      * @return array info or false (if error)
      *
      */
 
-    public function get_info ($last_update=null, $params=null, $connector_type=null) {
+    public function get_info ($last_update=null, $params=null, $connector_type=null, $add_reference_files=false) {
 
         if ($this->hasConnector()) {
 
@@ -312,6 +313,13 @@ class SalesLayer_Conn {
                 curl_setopt($ch, CURLOPT_CAINFO,  $this->SSL_CACert);
                 curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
                 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            }
+
+            if ($add_reference_files) {
+
+                if (!is_array($params)) { $params = []; }
+
+                $params['get_file_refereneces'] = 1;
             }
 
             if (is_array($params)) {
@@ -343,7 +351,7 @@ class SalesLayer_Conn {
 
                         $this->__clean_error();
 
-                        return $this->__parsing_json_returned();
+                        return $this->__parsing_json_returned($add_reference_files);
                     }
 
                 } else {
@@ -377,11 +385,12 @@ class SalesLayer_Conn {
     /**
      * Parsing received data
      *
+     * @param boolean $add_reference_files return file or image reference names
      * @return boolean
      *
      */
 
-    private function __parsing_json_returned () {
+    private function __parsing_json_returned ($add_reference_files=false) {
 
         if ($this->data_returned !== null) {
 

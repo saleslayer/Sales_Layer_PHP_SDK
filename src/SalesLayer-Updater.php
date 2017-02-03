@@ -31,6 +31,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     public  $table_prefix      = 'slyr_';
     public  $table_config      = '__api_config';
     public  $table_engine      = 'InnoDB';
+    public  $table_row_format  = 'COMPACT';
 
     public  $list_connectors   = array();
 
@@ -166,7 +167,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     }
 
     /**
-     * Set the prefix for our tables if need change
+     * Set the prefix for our tables if change is needed
      *
      * @param string $prefix to the tables
      * @return void
@@ -176,6 +177,32 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     public function set_table_prefix ($prefix) {
 
         $this->table_prefix = strtolower($prefix);
+    }
+
+    /**
+     * Set the table engine if change is needed
+     *
+     * @param string $engine the tables should use (InnoDB or MyISAM)
+     * @return void
+     *
+     */
+
+    public function set_table_engine ($engine) {
+
+        $this->table_engine = $engine;
+    }
+
+    /**
+     * Set the row format for tables if change is needed
+     *
+     * @param string $row_format One of COMPACT, DYNAMIC or if your MySQL is set up for it, COMPRESSED
+     * @return void
+     *
+     */
+
+    public function set_row_format ($row_format) {
+
+        $this->table_row_format = strtoupper($row_format);
     }
 
     /**
@@ -251,7 +278,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                               '`conn_extra` mediumtext CHARACTER SET {collation} NOT NULL, '.
                                               '`updater_version` varchar(10) NOT NULL, '.
                                               'PRIMARY KEY (`cnf_id`)'.
-                                              ') ENGINE='.$this->table_engine.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
+                                              ') ENGINE='.$this->table_engine.' ROW_FORMAT='.$this->table_row_format.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
 
                 if ($this->DB->execute($this->SQL_list[] = $SQL)) {
 
@@ -1078,7 +1105,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $this->DB->execute($this->SQL_list[] = "DROP TABLE IF EXISTS `$sly_table`");
 
-                $SQL = $this->__fix_collation("CREATE TABLE `$sly_table` ($fields) ENGINE=".$this->table_engine.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
+                $SQL = $this->__fix_collation("CREATE TABLE `$sly_table` ($fields) ENGINE=".$this->table_engine.' ROW_FORMAT='.$this->table_row_format.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
 
                 if ($this->DB->execute($this->SQL_list[] = $SQL)) {
 
