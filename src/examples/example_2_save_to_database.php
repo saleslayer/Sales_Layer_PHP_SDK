@@ -26,7 +26,7 @@
 
     if ($SLupdate->has_response_error()) {
 
-		echo '<h4>Error:</h4>\n\n Code: '.$SLupdate->get_response_error().
+		echo "<h4>Error:</h4>\n\n Code: ".$SLupdate->get_response_error().
 			 "<br>\nMessage: ".           $SLupdate->get_response_error_message();
 
 	} else {

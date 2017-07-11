@@ -662,19 +662,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private function __test_language ($language) {
 
-        $languages = $this->get_languages();
+        if (is_array($language)) {
 
-        if (!is_string($language)) {
+            $language = reset($language);
+        }
 
-            $language = $this->get_default_language();
-
-            if (!in_array($language, $languages)) { $language = reset($languages); }
-
-        } else {
+        if (!$language or !in_array($language, $this->get_languages())) {
 
             $language = $this->get_default_language();
-
-            if (!$language) { $language = reset($languages); }
         }
 
         return $language;
@@ -1781,7 +1776,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                         }
                                     }
 
-                                    unset($ids[$k]);
+                                    unset($ids[$id]);
                                 }
                             }
 
