@@ -588,6 +588,30 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     }
 
     /**
+     * Set manual save last update
+     *
+     * @param string $code connector
+     * @param integer $last_update
+     *
+     */
+
+    public function set_connector_last_update ($code, $last_update = null) {
+
+        if ($last_update != null) {
+
+            $last_udpate = $this->get_response_time(false);
+        }
+
+        $SQL = 'update '.$this->table_prefix.$this->table_config.' set last_update=\''.addslashes($last_update).'\' where conn_code=\''.addslashes($code).'\' limit 1';
+
+        if ($this->DB->execute($this->SQL_list[] = $SQL)) { return true; }
+
+        $this->__trigger_error($this->DB->error." ($SQL)", 104);
+
+        return false;
+    }
+
+    /**
      * Get database configurations
      *
      * @return array
