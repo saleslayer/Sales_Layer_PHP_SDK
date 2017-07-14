@@ -256,7 +256,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      */
 
-    private function __initialize_config () {
+    protected function __initialize_config () {
 
         if (!in_array($this->get_response_error(), array(103, 104))) {
 
@@ -270,7 +270,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                               '`conn_code` varchar(32) NOT NULL, '.
                                               '`conn_secret` varchar(32) NOT NULL, '.
                                               '`comp_id` int(11) NOT NULL, '.
-                                              '`last_update` int NOT NULL, '.
+                                              '`last_update` int DEFAULT NULL, '.
                                               '`default_language` varchar(6) NOT NULL, '.
                                               '`languages` varchar(512) NOT NULL, '.
                                               '`conn_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
@@ -528,10 +528,19 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 unset($v, $w, $list);
             }
         }
+        
+        if (isset($this->list_connectors['data']) && !empty($this->list_connectors['data'])){
 
-        return ($code ? (isset($this->list_connectors['data'][$code]) ? $this->list_connectors['data'][$code] : array())
-                        :
-                        $this->list_connectors['data']);
+            return ($code ? (isset($this->list_connectors['data'][$code]) ? $this->list_connectors['data'][$code] : array())
+                            :
+                            $this->list_connectors['data']);
+
+        }else{
+
+            return array();
+            
+        }
+
     }
 
     /**
@@ -618,7 +627,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      */
 
-    private function __get_config ($code='', $refresh=false) {
+    protected function __get_config ($code='', $refresh=false) {
 
         if (!in_array($this->get_response_error(), array(103, 104)) && $this->get_connectors_list()) {
 
