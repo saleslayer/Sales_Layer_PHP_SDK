@@ -233,20 +233,27 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private function __has_system_requirements () {
 
-        if (!extension_loaded('mysql') && !extension_loaded('PDO')) {
+        if (!extension_loaded('pdo') && !extension_loaded('mysql')) {
 
-            $this->__trigger_error ('Missing PHP database extensions', 103);
+            if (!extension_loaded('pdo')) {
 
-            return false;
+                self::__trigger_error ('Missing PHP PDO extension', 103);
+
+            } else {
+
+                self::__trigger_error ('Missing PHP MySQL extension', 103);
+            }
 
         } else if (!extension_loaded('CURL')) {
 
-            $this->__trigger_error ('Missing CURL extension', 106);
+            self::__trigger_error ('Missing CURL extension', 106);
 
-            return false;
+        } else {
+
+            return true;
         }
 
-        return true;
+        return false;
     }
 
     /**
