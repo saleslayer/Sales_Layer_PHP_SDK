@@ -67,7 +67,8 @@ class SalesLayer_Conn {
          '10' => 'Service temporarily blocked',
          '11' => 'Service temporarily unavailable',
          '12' => 'Incorrect date-code',
-         '13' => 'Date code has expired'
+         '13' => 'Date code has expired',
+         '14' => 'Updating data. Try later'
     );
 
     /**
