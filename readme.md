@@ -1,7 +1,8 @@
 Sales Layer SDK for PHP
 =======================
 
-This SDK contains all the logic and connection methods to Sales Layer’s customizable API.
+This SDK contains all the logic and connection methods to Sales Layer’s customizable API. And you can find more detailed documentation at our [website](http://support.saleslayer.com/connections-api/pim-php-sdk/ "Title").
+
 
 Samples
 =======
