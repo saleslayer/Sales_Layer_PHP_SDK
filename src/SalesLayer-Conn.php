@@ -34,7 +34,7 @@ class SalesLayer_Conn {
     private $__secretKey                 = null;
     private $__keyCypher                 = 'sha256'; // <-- or 'sha1'
 
-    private $__group_multicategory       = false;
+    protected $__group_multicategory     = false;
 
     public  $data_returned               = null;
     public  $response_api_version        = null;
