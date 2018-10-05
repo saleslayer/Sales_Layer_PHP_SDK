@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2016-08-08
- * @version 1.15
+ * @modified 2018-10-01
+ * @version 1.16
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        include_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version   = '1.15';
+    public  $updater_version   = '1.16';
 
     public  $database          = null;
     public  $username          = null;
@@ -37,7 +37,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public  $DB                = null;
     public  $SQL_list          = array();
-    public  $debbug            = true; // <-- false / true / 'file'
+    public  $debbug            = false; // <-- false / true / 'file'
     public  $test_update_stats = null;
 
     private $database_tables   = null;
@@ -256,6 +256,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         return false;
     }
 
+
+
     /**
      * Initialize essential database tables
      *
@@ -430,18 +432,18 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      * @return bool
      */
-     
+
     private function __refresh_last_update_config () {
-        
+
         if ($this->get_response_time(false) && $code=addslashes($this->get_identification_code())) {
 
             $SQL = "update `".$this->table_prefix.$this->table_config."` set last_update='".addslashes($this->get_response_time(false))."' where conn_code='$code' limit 1";
-            
+
             if ($this->DB->execute($this->SQL_list[] = $SQL)) return true;
-            
+
             $this->__trigger_error($this->DB->error." ($SQL)", 104);
         }
-        
+
         return false;
     }
 
@@ -535,7 +537,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 unset($v, $w, $list);
             }
         }
-        
+
         if (isset($this->list_connectors['data']) && !empty($this->list_connectors['data'])){
 
             return ($code ? (isset($this->list_connectors['data'][$code]) ? $this->list_connectors['data'][$code] : array())
@@ -545,7 +547,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         }else{
 
             return array();
-            
+
         }
 
     }
@@ -666,9 +668,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 } else { return $this->database_config; }
             }
         }
-        
+
         $config = (isset($config) ? $config : null);
-        
+
         return $this->database_config = $config;
     }
 
@@ -686,7 +688,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if (is_array($schema) && (isset($schema[$field]) || isset($fields[$field]))) {
 
-            $field = $field.((isset($schema[$field]) && $schema[$field]['has_multilingual']) ? '_'.$this->__test_language($language) : '');
+            $field = $field.((isset($schema[$field]) && isset($schema[$field]['has_multilingual'])) ? '_'.$this->__test_language($language) : '');
 
             if (isset($fields[$field])) { return $field; }
         }
@@ -776,7 +778,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      * Get table internal name
      *
      * @param $table string database table
-     * @return name
+     * @return string
      *
      */
 
@@ -794,7 +796,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      * @param $table string database table
      * @param $extended boolean extends multilingual fields
-     * @return array
+     * @return array|boolean
      *
      */
 
@@ -877,7 +879,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      * @param $params array parameters
      * @param $connector_type string por special plugins
      * @param $force_refresh boolean refresh last update database
-     * @return array stats
+     * @return array|boolean
      *
      */
 
@@ -1366,7 +1368,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 if (is_array($schema) && is_array($data) && count($data)) {
 
-                    $languages   = $this->get_languages();
+
                     $fields_conn = array();
 
                     foreach ($schema as $field=>$info) {
@@ -1659,7 +1661,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     if ($db_field) { $sql_order = "`$db_field` ASC"; }
                 }
 
-                if (!$order) { $order = 'order by `'.$field_title.'` ASC'; }
+                if ($sql_order == '') {$sql_order = " `$field_title` ASC"; }
 
                 $SQL = "select `{$table}_id` as ID, `__conn_id__` as CONN_ID$select from `$sly_table`".
                        ($where ? ' where '.$where : '').($sql_order ? ' order by '.$sql_order : '');
@@ -1812,7 +1814,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                             $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
-                                            $errors = true;
                                         }
                                     }
 

@@ -150,7 +150,7 @@ class SalesLayer_Conn {
 
     /**
      * Clean previous error code
-     * 
+     *
      */
 
     private function __clean_error () {
