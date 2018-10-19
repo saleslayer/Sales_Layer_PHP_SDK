@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2018-10-01
- * @version 1.16
+ * @modified 2018-10-19
+ * @version 1.17
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        include_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version   = '1.16';
+    public  $updater_version   = '1.17';
 
     public  $database          = null;
     public  $username          = null;

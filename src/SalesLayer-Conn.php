@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2017-02-01
- * @version 1.24
+ * @modified 2018-10-19
+ * @version 1.25
  *
  */
 
 class SalesLayer_Conn {
 
-    public  $version_class               = '1.24';
+    public  $version_class               = '1.25';
 
     public  $url                         = 'api.saleslayer.com';
 
