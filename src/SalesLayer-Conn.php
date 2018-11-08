@@ -523,10 +523,12 @@ class SalesLayer_Conn {
                                                 if (isset($fields[$ord]) and is_array($fields[$ord])
                                                     and isset(   $this->data_returned['data_schema'][$table][$ord][$fname])
                                                     and is_array($this->data_returned['data_schema'][$table][$ord][$fname])) {
+                                                    
+                                                    $data['data'][$fname]=array();
 
                                                     if (isset($fields[$ord][0]) and $fields[$ord][0]!='U') {
 
-                                                        $data['data'][$fname]=array();
+                                                       
 
                                                         foreach ($fields[$ord] as $fsub) {
 
