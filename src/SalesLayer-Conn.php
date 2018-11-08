@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2017-02-01
- * @version 1.24
+ * @modified 2018-10-19
+ * @version 1.25
  *
  */
 
 class SalesLayer_Conn {
 
-    public  $version_class               = '1.24';
+    public  $version_class               = '1.25';
 
     public  $url                         = 'api.saleslayer.com';
 
@@ -421,25 +421,28 @@ class SalesLayer_Conn {
                 if (isset($this->data_returned['data_schema_info']) && is_array($this->data_returned['data_schema_info']) &&
                     count($this->data_returned['data_schema_info'])) {
 
-                    foreach ($this->data_returned['data_schema_info'] as $table=>$info) {
+                    foreach ($this->data_returned['data_schema_info'] as $table => $info) {
 
-                        foreach ($info as $field=>$props) {
+                        foreach ($info as $field => $props) {
 
-                            $this->response_tables_info[$table]['fields'][$field]=array(
+                            $this->response_tables_info[$table]['fields'][$field] = array(
 
                                 'type'             => $props['type'],
-                                'has_multilingual' => (isset($props['language_code']) and $props['language_code']) ? 1 : 0
+                                'has_multilingual' => ((isset($props['language_code']) and $props['language_code']) ? 1 : 0)
                             );
-
+                            
                             if (isset($props['language_code']) && $props['language_code']) {
 
-                                $this->response_tables_info[$table]['fields'][$field]['language_code']=$props['language_code'];
-                                $this->response_tables_info[$table]['fields'][$field]['basename']     =$props['basename'];
+                                $this->response_tables_info[$table]['fields'][$field]['language_code'] = $props['language_code'];
+                                $this->response_tables_info[$table]['fields'][$field]['basename']      = $props['basename'];
                             }
 
+                            if      (isset($props['title'])  && $props['title'])  $this->response_tables_info[$table]['fields'][$field]['title']  = $props['title'];
+                            else if (isset($props['titles']) && $props['titles']) $this->response_tables_info[$table]['fields'][$field]['titles'] = $props['titles'];
+                            
                             if (isset($props['sizes']) && $props['sizes']) {
 
-                                $this->response_tables_info[$table]['fields'][$field]['image_sizes']  =$props['sizes'];
+                                $this->response_tables_info[$table]['fields'][$field]['image_sizes'] = $props['sizes'];
                             }
                         }
                     }
@@ -451,27 +454,27 @@ class SalesLayer_Conn {
 
                 if (is_array($this->data_returned['data_schema'])) {
 
-                    foreach ($this->data_returned['data_schema'] as $table=>$info) {
+                    foreach ($this->data_returned['data_schema'] as $table => $info) {
 
                         $parent_id_field = $table.'_parent_id';
 
-                        if ($this->response_action=='refresh') {
+                        if ($this->response_action == 'refresh') {
 
                             foreach ($info as $fname) {
 
                                 if (is_string($fname)) {
 
-                                    if ($fname=='ID_PARENT') {
+                                    if ($fname == 'ID_PARENT') {
 
-                                        $this->response_tables_info[$table]['fields'][$parent_id_field]=array(
+                                        $this->response_tables_info[$table]['fields'][$parent_id_field] = array(
 
                                             'type'    => 'key',
                                             'related' => $fname
                                         );
 
-                                    } else if (substr($fname, 0, 3)=='ID_') {
+                                    } else if (substr($fname, 0, 3) == 'ID_') {
 
-                                        $table_join=substr($fname, 3);
+                                        $table_join = substr($fname, 3);
 
                                         $this->response_tables_info[$table]['table_joins'][$table_join.'_id'] = $table_join;
                                     }
@@ -583,7 +586,7 @@ class SalesLayer_Conn {
      *
      * @param array $update_items items data to insert/update
      * @param array $delete_items items data to delete
-     ** @param boolean $compression gzip compression transfer
+     * @param boolean $compression gzip compression transfer
      * @return response to API
      *
      */
@@ -1000,7 +1003,6 @@ class SalesLayer_Conn {
         }
 
         return null;
-
     }
 
     /**
@@ -1019,5 +1021,156 @@ class SalesLayer_Conn {
 
         return null;
     }
+    
+     /**
+     * Get field titles
+     *
+     * @return array
+     *
+     */
 
+    public function get_response_field_titles ($table=null) {
+
+        $titles = [];
+        
+        if ($this->data_returned !== null) {
+        
+            if (!$table) {
+            
+                $tables = array_keys($this->response_tables_info);
+            
+            } else {
+            
+                $tables = [ $table ];
+            }
+
+            $languages = $this->data_returned['schema']['languages'];
+            
+            foreach ($tables as $table) {
+            
+                $titles[$table] = [];
+                     
+                if (       isset($this->response_tables_info[$table]) 
+                    and is_array($this->response_tables_info[$table]['fields']) 
+                    and    count($this->response_tables_info[$table]['fields'])) {
+                
+                    foreach ($this->response_tables_info[$table]['fields'] as $field =>& $info) {
+                    
+                        if (!in_array($field, ['ID', 'ID_PARENT'])) {
+                        
+                            $field_name = (isset($info['basename']) ? $info['basename'] : $field);
+                            
+                            if (isset($info['titles']) and count($info['titles'])) {
+                            
+                                $titles[$table][$field_name] = $info['titles'];
+                                
+                            } else {
+                            
+                                if (!isset($titles[$table][$field_name])) $titles[$table][$field_name] = [];
+                                
+                                $title = ((isset($info['title']) and $info['title']) ? $info['title'] : $field_name);
+                                
+                                if (isset($info['language_code'])) {
+                                
+                                    $titles[$table][$field_name][$info['language_code']] = $title;
+               
+                                } else {
+                  
+                                    foreach ($languages as $lang) { 
+                                    
+                                        $titles[$table][$field_name][$lang] = $title;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    unset($info);
+                }
+            }
+        }
+        
+        return $titles;
+    }
+
+    /**
+     * Get field titles in certain language
+     *
+     * @param string $language (ISO 639-1)
+     * @return array
+     *
+     */
+
+    public function get_response_language_field_titles ($language, $table=null) {
+
+        $titles = [];
+        
+        if ($this->data_returned !== null) {
+        
+            if (!$table) {
+            
+                $tables = array_keys($this->response_tables_info);
+            
+            } else {
+            
+                $tables = [ $table ];
+            }
+ 
+            $default_language = $this->data_returned['schema']['default_language'];
+            
+            foreach ($tables as $table) {
+            
+                $titles[$table] = [];
+                
+                if (       isset($this->response_tables_info[$table]) 
+                    and is_array($this->response_tables_info[$table]['fields']) 
+                    and    count($this->response_tables_info[$table]['fields'])) {
+        
+                    foreach ($this->response_tables_info[$table]['fields'] as $field =>& $info) {
+                        
+                        if (!in_array($field, ['ID', 'ID_PARENT'])) {
+                        
+                            if (isset($info['language_code'])) {
+                            
+                                if (  $info['language_code'] == $language) {
+                                
+                                    if (isset($info['titles']) and count($info['titles'])) {
+                                
+                                        if (isset($info['titles'][$language])) {
+                                        
+                                            $titles[$table][$field] = $info['titles'][$language];
+                                        
+                                        } else if (isset($info['titles'][$default_language])) {
+                                        
+                                            $titles[$table][$field] = $info['titles'][$default_language];
+                                            
+                                        } else {
+                                        
+                                            $titles[$table][$field] = reset($info['titles']);
+                                        }    
+                                    
+                                    } else if (isset($info['title'])) {
+                                    
+                                        $titles[$table][$field] = $info['title'];
+                                    
+                                    } else {
+                                    
+                                        $titles[$table][$field] = $info['basename'];
+                                    } 
+                                }
+                                
+                            } else {
+                            
+                                $titles[$table][$field] = $field;
+                            }
+                        }   
+                    }
+                    
+                    unset($info);
+                }
+            }
+        }
+        
+        return $titles;
+    }
 }

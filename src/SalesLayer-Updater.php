@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2018-10-01
- * @version 1.16
+ * @modified 2018-10-19
+ * @version 1.17
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        include_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version   = '1.16';
+    public  $updater_version   = '1.17';
 
     public  $database          = null;
     public  $username          = null;
@@ -340,21 +340,23 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             if ($this->get_response_action() == 'refresh') {
 
                 $info   = $this->get_response_table_information();
-                $schema = array();
+                $schema = [];
 
                 if (is_array($info) and count($info)) {
 
-                    foreach ($info as $table=>$data) {
+                    $default_language = $this->get_response_default_language();
+                    
+                    foreach ($info as $table =>& $data) {
 
                         if ($bd_table = $this->__verify_table_name($table)) {
 
-                            if (!isset($schema[$bd_table]))  { $schema[$bd_table] = array(); }
+                            if (!isset($schema[$bd_table]))  { $schema[$bd_table] = []; }
 
                             if (isset($data['table_joins'])) { $schema[$bd_table]['table_joins'] = $data['table_joins']; }
 
                             $schema[$bd_table]['name'] = $table;
 
-                            foreach ($data['fields'] as $field=>$struc) {
+                            foreach ($data['fields'] as $field =>& $struc) {
 
                                 if ($field) {
 
@@ -362,21 +364,26 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                         $db_field = strtolower($struc['basename']);
 
-                                        if (!isset($schema[$bd_table][$db_field])) {
+                                        if (!isset($schema[$bd_table]['fields'][$db_field])) {
 
-                                            $schema[$bd_table]['fields'][$db_field] = array(
+                                            $schema[$bd_table]['fields'][$db_field] = [
 
                                                 'name'             => $struc['basename'],
                                                 'type'             => $struc['type'],
-                                                'has_multilingual' => 1
-                                            );
+                                                'has_multilingual' => 1,
+                                                'titles'           => []
+                                            ];
 
-                                            if ($struc['type']=='image') {
+                                            if ($struc['type'] == 'image') {
 
                                                 $schema[$bd_table]['fields'][$db_field]['image_sizes'] = $struc['image_sizes'];
                                             }
                                         }
 
+                                        $language = (isset($struc['language_code']) ? $struc['language_code'] : $default_language);
+                                        
+                                        $schema[$bd_table]['fields'][$db_field]['titles'][$language] = ((isset($struc['title']) and $struc['title']) ? $struc['title'] : $db_field);
+      
                                     } else {
 
                                         $db_field                                       = strtolower($field);
@@ -385,11 +392,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                     }
                                 }
                             }
+                            unset($struc);
                         }
                     }
+                    unset($data);
                 }
-
-                unset($info, $data);
+                unset($info);
             }
 
             $this->get_connectors_list();
@@ -1336,6 +1344,131 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         return $languages;
     }
 
+         /**
+     * Get field titles
+     *
+     * @return array
+     *
+     */
+
+    public function get_field_titles ($table=null) {
+
+        $titles = [];
+        
+        $this->__test_config_initialized();
+    
+        if (!$table) {
+        
+            $tables = array_keys($this->database_config['data_schema']);
+        
+        } else {
+        
+            $tables = [ $table ];
+        }
+
+        $languages = $this->get_languages();
+        
+        foreach ($tables as $table) {
+        
+            $titles[$table] = [];
+            
+            if (       isset($this->database_config['data_schema'][$table]) 
+                and is_array($this->database_config['data_schema'][$table]['fields']) 
+                and    count($this->database_config['data_schema'][$table]['fields'])) {
+            
+                foreach ($this->database_config['data_schema'][$table]['fields'] as $field =>& $info) {
+                
+                    if (!in_array($field, ['ID', 'ID_PARENT'])) {
+          
+                        if (isset($info['titles']) and count($info['titles'])) {
+                        
+                            $titles[$table][$field] = $info['titles'];
+                            
+                        } else {
+                        
+                            if (!isset($titles[$table][$field])) $titles[$table][$field] = [];
+                         
+                            foreach ($languages as $lang) { 
+                            
+                                $titles[$table][$field][$lang] = $field;
+                            }
+                        }
+                    }
+                }
+                
+                unset($info);
+            }
+        }
+   
+        return $titles;
+    }
+
+    /**
+     * Get field titles in certain language
+     *
+     * @param string $language (ISO 639-1)
+     * @return array
+     *
+     */
+
+    public function get_language_field_titles ($language, $table=null) {
+
+        $titles = [];
+        
+        $this->__test_config_initialized();
+
+        if (!$table) {
+        
+            $tables = array_keys($this->database_config['data_schema']);
+        
+        } else {
+        
+            $tables = [ $table ];
+        }
+
+        $default_language = $this->get_default_language();
+   
+        foreach ($tables as $table) {
+        
+            $titles[$table] = [];
+            
+            if (       isset($this->database_config['data_schema'][$table]) 
+                and is_array($this->database_config['data_schema'][$table]['fields']) 
+                and    count($this->database_config['data_schema'][$table]['fields'])) {
+
+                foreach ($this->database_config['data_schema'][$table]['fields'] as $field =>& $info) {
+              
+                    if (!in_array($field, ['ID', 'ID_PARENT'])) {
+            
+                        if (isset($info['titles']) and count($info['titles'])) {
+                        
+                            if (isset($info['titles'][$language])) {
+                            
+                                $titles[$table][$field] = $info['titles'][$language];
+                            
+                            } else if (isset($info['titles'][$default_language])) {
+                            
+                                $titles[$table][$field] = $info['titles'][$default_language];
+                                
+                            } else {
+                            
+                                $titles[$table][$field] = reset($info['titles']);
+                            }    
+                        
+                        } else {
+                   
+                            $titles[$table][$field] = $field;
+                        }
+                    }   
+                }
+                
+                unset($info);
+            }
+        }
+        
+        return $titles;
+    }
+        
     /**
      * Update batabase tables
      *
