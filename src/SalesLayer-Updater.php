@@ -87,6 +87,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function __construct ($database=null, $username=null, $password=null, $hostname=null, $codeConn=null, $secretKey=null, $SSL=false, $url=false) {
 
+        parent::__construct();
+
         if ($this->__has_system_requirements() && $database!=null) {
 
                $this->connect($database, $username, $password, $hostname, $codeConn, $secretKey, $SSL, $url);
@@ -1142,8 +1144,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 foreach ($schema as $field=>$info) {
 
                     $field   = strtolower($field);
-                    $type    = $this->__get_database_type_schema($info['type']);
-                    $fields .= ", `$field` $type ".$this->database_field_types_charset[$type];
+                    if ($table === 'products' && $field === 'catalogue_id' && $this->__group_multicategory === true) {
+                        $type = 'varchar(200)';
+                        $fields .= ", `$field` $type ";
+                    } else {
+                        $type    = $this->__get_database_type_schema($info['type']);
+                        $fields .= ", `$field` $type ".$this->database_field_types_charset[$type];
+                    }
                 }
 
                 $sly_table = $this->table_prefix.$table;
@@ -1215,6 +1222,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         $type = $this->__get_database_type_schema($info['type']);
                         $mode = (  !isset($this->database_fields[$table][$field]) ?
                                  'ADD' : ($this->database_fields[$table][$field]!=$type ? "CHANGE `$field` " : ''));
+
+                        //If using group_multicategory, it should not try and change the field to a bigint
+                        if ($table_name === 'products' && $field === 'catalogue_id' && $this->__group_multicategory === true) {
+                            $mode = '';
+                        }
 
                         if ($mode) {
 
