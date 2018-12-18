@@ -30,7 +30,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public  $table_prefix      = 'slyr_';
     public  $table_config      = '__api_config';
-    public  $table_engine      = 'InnoDB';
+    public  $table_engine      = 'MyISAM';
     public  $table_row_format  = 'COMPACT';
 
     public  $list_connectors   = array();
@@ -698,7 +698,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if (is_array($schema) && (isset($schema[$field]) || isset($fields[$field]))) {
 
-            $field = $field.((isset($schema[$field]) && isset($schema[$field]['has_multilingual'])) ? '_'.$this->__test_language($language) : '');
+            $field = $field.((isset($schema[$field]) && isset($schema[$field]['has_multilingual']) && $schema[$field]['has_multilingual']) ? '_'.$this->__test_language($language) : '');
 
             if (isset($fields[$field])) { return $field; }
         }
@@ -1806,7 +1806,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     if ($db_field) { $sql_order = "`$db_field` ASC"; }
                 }
 
-                if ($sql_order == '') {$sql_order = " `$field_title` ASC"; }
+                if ($field_title and $sql_order == '') {$sql_order = " `$field_title` ASC"; }
 
                 $SQL = "select `{$table}_id` as ID, `__conn_id__` as CONN_ID$select from `$sly_table`".
                        ($where ? ' where '.$where : '').($sql_order ? ' order by '.$sql_order : '');
