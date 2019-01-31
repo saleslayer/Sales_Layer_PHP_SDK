@@ -17,8 +17,8 @@ class SalesLayer_Conn
 {
     public $version_class = '1.25';
 
-    //public $url = 'api.saleslayer.com';
-    public $url = 'api.ladelpulpo.com';
+    public $url = 'api.saleslayer.com';
+    
 
     public $SSL = false;
     public $SSL_Cert = null;
