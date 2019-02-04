@@ -337,27 +337,27 @@ class SalesLayer_Conn {
 
                 $this->data_returned = json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
 
-                unset($response); 
                 curl_close($ch);
 
                 if ($this->data_returned !== false && is_array($this->data_returned)) {
+             
+                    unset($response); 
 
-                    unset($response);
-
-                    if ($connector_type && isset($this->data_returned['schema']['connector_type']) &&
-                        $connector_type !=       $this->data_returned['schema']['connector_type']) {
+                    if (   $connector_type
+                        &&              isset($this->data_returned['schema']['connector_type']) 
+                        && $connector_type != $this->data_returned['schema']['connector_type']) {
 
                         $this->__trigger_error('Wrong connector type: '.$this->data_returned['schema']['connector_type'], 105);
 
                     } else {
-
+       
                         $this->__clean_error();
 
                         return $this->__parsing_json_returned();
                     }
 
                 } else {
-
+                
                     $this->__trigger_error('Void response or malformed: '.$response, 101);
                 }
 
@@ -406,7 +406,7 @@ class SalesLayer_Conn {
 
                 } else {
 
-                    $message_error = 'Unknown error';
+                    $message_error = 'API error';
                 }
 
                 $this->__trigger_error($message_error, $this->data_returned['error']);
@@ -589,29 +589,29 @@ class SalesLayer_Conn {
      *
      */
 
-    public function set_info ($update_items=array(), $delete_items=array(), $compression=false) {
+    public function set_info ($update_items = array(), $delete_items = array(), $compression = false) {
 
-        $data=array();
+        $data = array();
 
         if ($this->hasConnector()) {
 
             if (is_array($update_items) and count($update_items)) {
 
-                $data['input_data']=array();
+                $data['input_data'] = array();
 
                 foreach ($update_items as $table => &$items) {
 
-                    if (is_array($items) and count($items)) { $data['input_data'][$table]=$items; }
+                    if (is_array($items) and count($items)) { $data['input_data'][$table] = $items; }
                 }
             }
 
             if (is_array($delete_items) and count($delete_items)) {
 
-                $data['delete_data']=array();
+                $data['delete_data'] = array();
 
                 foreach ($update_items as $table => &$items) {
 
-                    if (is_array($items) and count($items)) { $data['delete_data'][$table]=$items; }
+                    if (is_array($items) and count($items)) { $data['delete_data'][$table] = $items; }
                 }
             }
 
@@ -619,7 +619,7 @@ class SalesLayer_Conn {
 
             if (count($data)) {
 
-                $ch=curl_init($this->__get_api_url());
+                $ch = curl_init($this->__get_api_url());
 
                 if ($this->SSL && $this->SSL_Cert) {
 
@@ -1134,11 +1134,11 @@ class SalesLayer_Conn {
                                 
                                     if (isset($info['titles']) and count($info['titles'])) {
                                 
-                                        if (isset($info['titles'][$language])) {
+                                        if (                    isset($info['titles'][$language])) {
                                         
                                             $titles[$table][$field] = $info['titles'][$language];
                                         
-                                        } else if (isset($info['titles'][$default_language])) {
+                                        } else if (             isset($info['titles'][$default_language])) {
                                         
                                             $titles[$table][$field] = $info['titles'][$default_language];
                                             
@@ -1162,8 +1162,7 @@ class SalesLayer_Conn {
                                 $titles[$table][$field] = $field;
                             }
                         }   
-                    }
-                    
+                    }      
                     unset($info);
                 }
             }
