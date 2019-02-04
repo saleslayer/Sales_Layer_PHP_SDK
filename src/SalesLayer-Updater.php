@@ -627,7 +627,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if ($last_update != null) {
 
-            $last_udpate = $this->get_response_time(false);
+            $last_update = $this->get_response_time(false);
         }
 
         $SQL = 'update '.$this->table_prefix.$this->table_config.' set last_update=\''.addslashes($last_update).'\' where conn_code=\''.addslashes($code).'\' limit 1';
@@ -656,11 +656,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 if ($refresh || !count($this->database_config) || $this->database_config['conn_code']!=$code) {
 
-                    $data = $this->DB->execute($this->SQL_list[]='select * from `'.$this->table_prefix.$this->table_config."` where `conn_code`='$code' limit 1");
+                    $data = $this->DB->execute( $this->SQL_list[] = 'select * from `'.$this->table_prefix.$this->table_config."` where `conn_code`='$code' limit 1" );
 
                     if (count($data)) {
 
-                        $config = array(
+                        $config = [
 
                             'conn_id'          =>              $data['0']['cnf_id'],
                             'conn_code'        =>              $data['0']['conn_code'],
@@ -670,7 +670,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                             'languages'        => explode(',', $data['0']['languages']),
                             'conn_schema'      => json_decode( $data['0']['conn_schema'], 1),
                             'data_schema'      => json_decode( $data['0']['data_schema'], 1)
-                        );
+                        ];
 
                         if (!$config['last_update']) { $config['last_update'] = null; }
                     }
