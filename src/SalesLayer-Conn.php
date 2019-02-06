@@ -285,7 +285,6 @@ class SalesLayer_Conn
 
             if ($this->SSL && $this->SSL_Cert) {
                 curl_setopt($ch, CURLOPT_PORT, 443);
-
                 curl_setopt($ch, CURLOPT_SSLCERT, $this->SSL_Cert);
                 curl_setopt($ch, CURLOPT_SSLKEY, $this->SSL_Key);
                 curl_setopt($ch, CURLOPT_CAINFO, $this->SSL_CACert);
@@ -318,27 +317,30 @@ class SalesLayer_Conn
                 curl_close($ch);
 
                 if ($this->data_returned !== false && is_array($this->data_returned)) {
+                    
                     unset($response);
 
                     if ($connector_type
                         && isset($this->data_returned['schema']['connector_type'])
                         && $connector_type != $this->data_returned['schema']['connector_type']) {
+                        
                         $this->__trigger_error('Wrong connector type: '.$this->data_returned['schema']['connector_type'], 105);
+
                     } else {
+        
                         $this->__clean_error();
 
                         return $this->__parsing_json_returned();
                     }
-                }
 
-                if (isset($response['error'])) {
-                    $this->__trigger_error('API error', $response['error']);
                 } else {
                     $this->__trigger_error('Void response or malformed: '.$response, 101);
                 }
-            } else {
-                $this->__trigger_error('Error connection: '.curl_error($ch), 102);
 
+            } else {
+
+                $this->__trigger_error('Error connection: '.curl_error($ch), 102);
+                
                 curl_close($ch);
             }
         }
