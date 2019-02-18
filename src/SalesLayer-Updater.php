@@ -1556,7 +1556,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                 unset($value);
 
-                            } else if (isset($fields_conn[$field])) {
+                            } else if (isset($fields_conn[$field]) && $field != 'id') {
 
                                 if (is_array($f_data)) { $f_data = implode(',', $f_data); }
 
