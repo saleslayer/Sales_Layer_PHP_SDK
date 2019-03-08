@@ -835,7 +835,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if ($extended!=true) {
 
-                $fields = array_join($join_fields, $this->database_config['data_schema'][$table]['fields']);
+                $fields = $this->array_join($join_fields, $this->database_config['data_schema'][$table]['fields']);
 
             } else {
 
