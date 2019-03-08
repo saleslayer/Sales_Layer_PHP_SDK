@@ -835,7 +835,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if ($extended!=true) {
 
-                $fields = array_merge($join_fields, $this->database_config['data_schema'][$table]['fields']);
+                $fields = array_join($join_fields, $this->database_config['data_schema'][$table]['fields']);
 
             } else {
 
@@ -860,7 +860,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     }
                 }
 
-                $fields = array_merge($join_fields, $fields);
+                $fields = $this->array_join($join_fields, $fields);
             }
 
             return $fields;
@@ -1539,7 +1539,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                 foreach ($f_data as $d_field=>&$value) {
 
-                                    if (isset($fields_conn[$d_field])) {
+                                    if (isset($fields_conn[$d_field]) && isset($schema[$d_field])) {
 
                                         if (is_array($value)) {
 
@@ -1986,6 +1986,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         return $del_ids;
     }
+    
+    // function array_join 
+    // merges 2 arrays preserving the keys, 
+    function array_join($a1, $a2) { 
+        foreach($a2 as $key=>$value) $a1[$key]=$value; 
+        return $a1; 
+    } 
 
     /**
      * Get list of SQL's executed
