@@ -15,7 +15,7 @@
  */
 class SalesLayer_Conn
 {
-    public $version_class = '1.25';
+    public $version_class = '1.26';
 
     public $url = 'api.saleslayer.com';
 
@@ -34,6 +34,8 @@ class SalesLayer_Conn
     private $__keyCypher = 'sha256'; // <-- or 'sha1'
 
     protected $__group_multicategory = false;
+    protected $__get_same_parent_variants_modifications = false;
+    protected $__get_parent_modifications = false;
 
     public $data_returned = null;
     public $response_api_version = null;
@@ -142,6 +144,12 @@ class SalesLayer_Conn
         if ($this->__group_multicategory !== false) {
             $URL .= '&group_category_id=1';
         }
+        if ($this->__get_same_parent_variants_modifications !== false) {
+            $URL .= '&same_parent_variants=1';
+        }
+        if ($this->__get_parent_modifications !== false) {
+            $URL .= '&first_parent_level=1';
+        }
 
         return $URL;
     }
@@ -243,6 +251,26 @@ class SalesLayer_Conn
     public function set_group_multicategory($group)
     {
         $this->__group_multicategory = $group;
+    }
+    
+    /**
+     * Set value for getting same parent variants modifications on single variant modification.
+     *
+     * @param bool $enable
+     */
+    public function set_same_parent_variants_modifications($enable)
+    {
+        $this->__get_same_parent_variants_modifications = $enable;
+    }
+    
+    /**
+     * Set value for getting modifications/deletions of first level parents.
+     *
+     * @param bool $enable
+     */
+    public function set_first_level_parent_modifications($enable)
+    {
+        $this->__get_parent_modifications = $enable;
     }
 
     /**
