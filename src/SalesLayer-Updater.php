@@ -823,10 +823,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             if (    isset($this->database_config['data_schema'][$table]['table_joins'])) {
 
                  foreach ($this->database_config['data_schema'][$table]['table_joins'] as $field_id=>$table_rel) {
+                     
+                     $tipo = $this->__group_multicategory ? 'big_string' : 'key';
 
                      $join_fields[strtolower($field_id)] = array(
 
-                        'type'  => 'key',
+                        'type'  => $tipo,
                         'table' => $table_rel,
                         'name'  => $field_id
                     );
@@ -1144,13 +1146,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 foreach ($schema as $field=>$info) {
 
                     $field   = strtolower($field);
-                    if ($table === 'products' && $field === 'catalogue_id' && $this->__group_multicategory === true) {
-                        $type = 'varchar(200)';
-                        $fields .= ", `$field` $type ";
-                    } else {
-                        $type    = $this->__get_database_type_schema($info['type']);
-                        $fields .= ", `$field` $type ".$this->database_field_types_charset[$type];
-                    }
+                    
+                    $type    = $this->__get_database_type_schema($info['type']);
+                    $fields .= ", `$field` $type ".$this->database_field_types_charset[$type];
+                        
                 }
 
                 $sly_table = $this->table_prefix.$table;
@@ -1222,11 +1221,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         $type = $this->__get_database_type_schema($info['type']);
                         $mode = (  !isset($this->database_fields[$table][$field]) ?
                                  'ADD' : ($this->database_fields[$table][$field]!=$type ? "CHANGE `$field` " : ''));
-
-                        //If using group_multicategory, it should not try and change the field to a bigint
-                        if ($table_name === 'products' && $field === 'catalogue_id' && $this->__group_multicategory === true) {
-                            $mode = '';
-                        }
 
                         if ($mode) {
 
