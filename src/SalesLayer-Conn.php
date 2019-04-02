@@ -36,6 +36,7 @@ class SalesLayer_Conn
     protected $__group_multicategory = false;
     protected $__get_same_parent_variants_modifications = false;
     protected $__get_parent_modifications = false;
+    protected $__get_parents_category_tree = false;
 
     public $data_returned = null;
     public $response_api_version = null;
@@ -150,7 +151,10 @@ class SalesLayer_Conn
         if ($this->__get_parent_modifications !== false) {
             $URL .= '&first_parent_level=1';
         }
-
+        if ($this->__get_parents_category_tree !== false) {
+            $URL .= '&parents_category_tree=1';
+        }
+        
         return $URL;
     }
 
@@ -271,6 +275,16 @@ class SalesLayer_Conn
     public function set_first_level_parent_modifications($enable)
     {
         $this->__get_parent_modifications = $enable;
+    }
+    
+    /**
+     * Set value for getting modifications/deletions of first level parents.
+     *
+     * @param bool $enable
+     */
+    public function set_parents_category_tree($enable)
+    {
+        $this->__get_parents_category_tree = $enable;
     }
 
     /**
