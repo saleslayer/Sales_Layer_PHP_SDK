@@ -625,7 +625,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function set_connector_last_update ($code, $last_update = null) {
 
-        if ($last_update != null) {
+        if ($last_update == null) {
 
             $last_update = $this->get_response_time(false);
         }

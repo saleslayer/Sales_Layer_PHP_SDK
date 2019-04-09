@@ -9,9 +9,9 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2018-10-19
+ * @modified 2019-04-09
  *
- * @version 1.25
+ * @version 1.26
  */
 class SalesLayer_Conn
 {
@@ -81,7 +81,7 @@ class SalesLayer_Conn
      * @param string $url       Url to SalesLayer API connection
      * @param bool   $forceuft8 Set PHP system default charset to utf-8
      */
-    public function __construct($codeConn = null, $secretKey = null, $SSL = false, $url = false, $forceuft8 = true)
+    public function __construct($codeConn = null, $secretKey = null, $SSL = true, $url = false, $forceuft8 = true)
     {
         if ($this->__has_system_requirements()) {
             if ($forceuft8 == true) {
@@ -325,20 +325,21 @@ class SalesLayer_Conn
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1800); // 30 minutes * 60 seconds
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
             if ($this->SSL && $this->SSL_Cert) {
                 curl_setopt($ch, CURLOPT_PORT, 443);
                 curl_setopt($ch, CURLOPT_SSLCERT, $this->SSL_Cert);
                 curl_setopt($ch, CURLOPT_SSLKEY, $this->SSL_Key);
                 curl_setopt($ch, CURLOPT_CAINFO, $this->SSL_CACert);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
             }
 
             if ($add_reference_files) {
                 if (!is_array($params)) {
                     $params = [];
                 }
-
                 $params['get_file_refereneces'] = 1;
             }
 
@@ -598,14 +599,17 @@ class SalesLayer_Conn
             if (count($data)) {
                 $ch = curl_init($this->__get_api_url());
 
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+
                 if ($this->SSL && $this->SSL_Cert) {
                     curl_setopt($ch, CURLOPT_PORT, 443);
 
                     curl_setopt($ch, CURLOPT_SSLCERT, $this->SSL_Cert);
                     curl_setopt($ch, CURLOPT_SSLKEY, $this->SSL_Key);
                     curl_setopt($ch, CURLOPT_CAINFO, $this->SSL_CACert);
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+
                 }
 
                 curl_setopt($ch, CURLOPT_POST, true);
