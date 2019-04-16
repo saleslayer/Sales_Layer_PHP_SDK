@@ -10,9 +10,8 @@
  */
 class slyr_SQL {
 
-	public $error;
-
-    public $pdo  =false;
+	public $error = null;
+    public $pdo   = false;
 
 	private $hostname;
 	private $username;
@@ -38,7 +37,7 @@ class slyr_SQL {
 
         if (!$this->pdo) {
             try {
-                $this->pdo=new PDO('mysql:dbname='.$this->database.';host='.$this->hostname, $this->username, $this->password,
+                $this->pdo=new PDO('mysql:'.($this->database ? 'dbname='.$this->database.';' : '').'host='.$this->hostname, $this->username, $this->password,
                                    array(PDO::ATTR_PERSISTENT=>$this->persistent));
             } catch (PDOException $e) {
                 $this->error = $e->getMessage();
@@ -54,15 +53,17 @@ class slyr_SQL {
 
         if      ($values == null)    $values = array();
         else if (!is_array($values)) $values = array($values);
+
         $stmt = $this->prep_query($query);
+
         if ($stmt->execute($values) === true) {
             if      (stripos($query, 'insert ' ) === 0)          { $out = $this->pdo->lastInsertId();        }
             else if (preg_match('/^(select|show)\s+/i', $query)) { $out = $stmt->fetchAll(PDO::FETCH_ASSOC); }
-            else                                                 { $out=true;                                }
-            $this->error = '';
+            else                                                 { $out = true;                              }
+            $this->error = null;
         } else {
             $out = null;
-            $err=$stmt->errorInfo();
+            $err = $stmt->errorInfo();
             $this->error = 'SQL error: ('.$err[1].') '.$err[2];
         }
         return $out;

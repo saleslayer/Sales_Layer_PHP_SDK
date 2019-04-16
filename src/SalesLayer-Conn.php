@@ -9,13 +9,13 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2019-04-09
+ * @modified 2019-04-15
  *
- * @version 1.26
+ * @version 1.27
  */
 class SalesLayer_Conn
 {
-    public $version_class = '1.26';
+    public $version_class = '1.27';
 
     public $url = 'api.saleslayer.com';
 
@@ -409,6 +409,7 @@ class SalesLayer_Conn
     private function __parsing_json_returned()
     {
         if ($this->data_returned !== null) {
+
             $this->response_api_version = $this->data_returned['version'];
             $this->response_time = $this->data_returned['time'];
 
@@ -425,11 +426,14 @@ class SalesLayer_Conn
                 $this->response_tables_info =
                 $this->response_files_list = [];
 
-                if (isset($this->data_returned['data_schema_info'])
+                if (      isset($this->data_returned['data_schema_info'])
                     && is_array($this->data_returned['data_schema_info'])
-                    && count($this->data_returned['data_schema_info'])) {
+                    &&    count($this->data_returned['data_schema_info'])) {
+
                     foreach ($this->data_returned['data_schema_info'] as $table => $info) {
+
                         foreach ($info as $field => $props) {
+
                             $this->response_tables_info[$table]['fields'][$field] = [
                                 'type' => $props['type'],
                                 'has_multilingual' => ((isset($props['language_code']) and $props['language_code']) ? 1 : 0),
@@ -444,6 +448,12 @@ class SalesLayer_Conn
                                 $this->response_tables_info[$table]['fields'][$field]['title'] = $props['title'];
                             } elseif (isset($props['titles']) && $props['titles']) {
                                 $this->response_tables_info[$table]['fields'][$field]['titles'] = $props['titles'];
+                            } else {
+                                $this->response_tables_info[$table]['fields'][$field]['title'] = $field;
+                            }
+
+                            if (isset($props['table_key'])) {
+                                $this->response_tables_info[$table]['fields'][$field]['title'] = $props['table_key'];
                             }
 
                             if (isset($props['sizes']) && $props['sizes']) {
@@ -458,18 +468,26 @@ class SalesLayer_Conn
                 $this->response_table_deleted_ids = [];
 
                 if (is_array($this->data_returned['data_schema'])) {
+
                     foreach ($this->data_returned['data_schema'] as $table => $info) {
+
                         $parent_id_field = $table.'_parent_id';
 
                         if ($this->response_action == 'refresh') {
-                            foreach ($info as $fname) {
+                            
+                            foreach ($info as $field => $fname) {
+                                
                                 if (is_string($fname)) {
+
                                     if ($fname == 'ID_PARENT') {
+                                    
                                         $this->response_tables_info[$table]['fields'][$parent_id_field] = array(
-                                            'type' => 'key',
+                                            'type'    => 'key',
                                             'related' => $fname,
                                         );
+                                    
                                     } elseif (substr($fname, 0, 3) == 'ID_') {
+
                                         $table_join = substr($fname, 3);
 
                                         $this->response_tables_info[$table]['table_joins'][$table_join.'_id'] = $table_join;
@@ -505,9 +523,11 @@ class SalesLayer_Conn
                                     }
 
                                     foreach ($this->data_returned['data_schema'][$table] as $ord => $field) {
+
                                         $fname = (!is_array($field)) ? $field : key($field);
 
-                                        if ($fname != 'STATUS' and $fname != 'ID' and $fname != 'ID_PARENT') {
+                                        if (!in_array($fname, ['STATUS', 'ID', 'ID_PARENT'])) {
+
                                             if (substr($fname, 0, 3) == 'ID_') {
                                                 $data[substr($fname, 3).'_id'] = $fields[$ord];
                                             } else {

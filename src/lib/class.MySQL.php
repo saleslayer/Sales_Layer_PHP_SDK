@@ -43,7 +43,7 @@ class slyr_SQL {
             $this->error = 'Could not connect to server: '.mysql_error($this->dbLink);
             return false;
         }
-        if (!$this->useDB()) return false;
+        if ($this->database && !$this->useDB()) return false;
         return true;
     }
 
@@ -61,6 +61,7 @@ class slyr_SQL {
         if ($this->result = mysql_query($query, $this->dbLink)){
             $this->records  = (gettype($this->result) === 'resource' ? @mysql_num_rows($this->result): 0);
             $this->affected = @mysql_affected_rows($this->dbLink);
+            $this->error    = null; 
             return $this->arrayResults();
         } else {
             $this->error = mysql_error($this->dbLink);
