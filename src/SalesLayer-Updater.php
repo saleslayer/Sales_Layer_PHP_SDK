@@ -1311,7 +1311,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                 if (in_array($db_field, $this->table_columns[$multi_db_table])) {
 
-                                    $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')."DROP `$db_field`";
+                                    $fields[$multi_db_table] .= (isset($fields[$multi_db_table]) ? ', ' : '')."DROP `$db_field`";
 
                                     break;
                                 }
@@ -1432,7 +1432,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 foreach ($schema as $field =>& $info) {
 
-                    if ($info && !$info['key']) {
+                    if ($info && !isset($info['key'])) {
 
                         $db_field = $this->__clean_db_name(isset($info['sanitized']) ? $info['sanitized'] : $field);
                         $type     = $this->__get_database_type_schema($info['type']);
