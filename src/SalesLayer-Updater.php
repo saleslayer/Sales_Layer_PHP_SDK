@@ -371,7 +371,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             
                     foreach ($info as $table =>& $data) {
 
-                        if (!isset($data_schema[$table]))  { 
+                        if (!isset($data_schema[$table])) { 
                             
                             $data_schema[$table] = [
 
@@ -390,7 +390,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         foreach ($data['fields'] as $field =>& $struc) {
 
                             if ($field) {
-                                
+                  
                                 $is_key = ($struc['type'] == 'key' or substr($field, 0, 3) == 'ID_');
 
                                 if (!$is_key) {
@@ -416,11 +416,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                             'has_multilingual' => 1,
                                             'titles'           => []
                                         ];
-
-                                        if ($struc['type'] == 'image') {
-
-                                            $data_schema[$table]['fields'][$db_field]['image_sizes'] = $struc['image_sizes'];
-                                        }
                                     }
 
                                     $language = (isset($struc['language_code']) ? $struc['language_code'] : $default_language);
@@ -433,9 +428,15 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                     $data_schema[$table]['fields'][$db_field] = [
 
-                                        'name' => $field,
-                                        'type' => $struc['type']
+                                        'name'   => $field,
+                                        'type'   => $struc['type'],
+                                        'titles' => (isset($struc['titles']) ? $struc['titles'] : [ $default_language => $struc['title'] ])
                                     ];
+                                }
+
+                                if ($struc['type'] == 'image') {
+
+                                    $data_schema[$table]['fields'][$db_field]['image_sizes'] = $struc['image_sizes'];
                                 }
                             }
                         } 
