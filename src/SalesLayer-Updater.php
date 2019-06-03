@@ -2335,12 +2335,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 foreach ($fields as $name => $field) {
 
-                    if (   isset($schema[$field])) {
+                    if (isset($schema[$field])) {
 
                         $info       =& $schema[$field];
                         $field_name =  addslashes(is_string($name) ? $name : ($get_internal_names ? $field : $info['name']));
+                        $is_file    =  in_array($info['type'], [ 'image', 'file' ]);
 
-                        if (in_array($info['type'], [ 'image', 'file' ])) ++ $has_json_fields;
+                        if ($is_file) ++ $has_json_fields;
 
                         $multi = ((isset($info['has_multilingual']) && $info['has_multilingual']));
       
@@ -2352,7 +2353,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                             $this_db_table_base = $this->__get_table_for_field($db_field_base, $table);
 
                             $select .= ($select ? ', ' : '').
-                                       "IF(`$this_db_table`.`$db_field`!='', `$this_db_table`.`$db_field`, `$this_db_table_base`.`$db_field_base`) as `$field_name`";
+                                       "IF(`$this_db_table`.`$db_field`!=''".($is_file ? " and `$this_db_table`.`$db_field`!='[]'" : '').
+                                       ", `$this_db_table`.`$db_field`, `$this_db_table_base`.`$db_field_base`) as `$field_name`";
 
                             if (!isset($tables_db[$this_db_table]))                                               $tables_db[$this_db_table]      = 1;
                             if ($this_db_table != $this_db_table_base && !isset($tables_db[$this_db_table_base])) $tables_db[$this_db_table_base] = 1;
