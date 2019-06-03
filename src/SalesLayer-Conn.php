@@ -9,13 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2019-05-07
+ * @modified 2019-05-21
  *
- * @version 1.28
+ * @version 1.29
  */
-class SalesLayer_Conn
+class SalesLayer_Conn 
 {
-    public $version_class = '1.28';
+
+    public $version_class = '1.29';
 
     public $url = 'api.saleslayer.com';
 
@@ -55,7 +56,7 @@ class SalesLayer_Conn
     public $memory_limit = ''; // <-- examples: 512M or 1024M
     public $user_abort   = false;
 
-    private $__error_list = array(
+    private $__error_list = [
         '1'  => 'Validation error',
         '2'  => 'Invalid connector code',
         '3'  => 'Wrong unique key',
@@ -69,8 +70,8 @@ class SalesLayer_Conn
         '11' => 'Service temporarily unavailable',
         '12' => 'Incorrect date-code',
         '13' => 'Date code has expired',
-        '14' => 'Updating data. Try later',
-    );
+        '14' => 'Updating data. Try later'
+    ];
 
     /**
      * Constructor - if you're not using the class statically.
@@ -426,16 +427,16 @@ class SalesLayer_Conn
                 $this->response_tables_info =
                 $this->response_files_list  = [];
 
-                if (isset($this->data_returned['data_schema_info'])
+                if (      isset($this->data_returned['data_schema_info'])
                     && is_array($this->data_returned['data_schema_info'])
-                    && count($this->data_returned['data_schema_info'])) {
+                    &&    count($this->data_returned['data_schema_info'])) {
 
                     foreach ($this->data_returned['data_schema_info'] as $table => $info) {
 
                         foreach ($info as $field => $props) {
 
                             $this->response_tables_info[$table]['fields'][$field] = [
-                                'type'             => $props['type'],
+                                'type'             => (('ID' == $field or substr($field, 0, 3) == 'ID_') ? 'key' : $props['type']),
                                 'sanitized'        => (isset($props['sanitized']) ? $props['sanitized'] : (isset($props['basename']) ? $props['basename'] : $field)),
                                 'has_multilingual' => ((isset($props['language_code']) and $props['language_code']) ? 1 : 0),
                             ];
@@ -470,37 +471,15 @@ class SalesLayer_Conn
 
                 if (is_array($this->data_returned['data_schema'])) {
 
-                    $sanitized_tables = $this->get_response_sanitized_table_names();
-
                     foreach ($this->data_returned['data_schema'] as $table => $info) {
-
-                        $ord_ID          = 1;
-                        $parent_id_field = (isset($sanitized_tables[$table]) ? $sanitized_tables[$table] : $table) . '_parent_id';
-                        $db_titles       = [];
 
                         foreach ($info as $ord => $fname) {
 
                             if (is_string($fname)) {
 
-                                $db_titles[$fname] = (isset($this->data_returned['data_schema_info'][$table][$fname]['sanitized']) ?
-                                                            $this->data_returned['data_schema_info'][$table][$fname]['sanitized'] : $fname);
-                                if ('ID' == $fname) {
+                                if (substr($fname, 0, 3) == 'ID_' and 'ID_PARENT' != $fname) {
 
-                                    $ord_ID = $ord;
-
-                                } else if ('ID_PARENT' == $fname) {
-
-                                    $this->response_tables_info[$table]['fields'][$parent_id_field] = [
-                                        'type'      => 'key',
-                                        'sanitized' => $parent_id_field,
-                                        'related'   => $fname,
-                                    ];
-
-                                } elseif (substr($fname, 0, 3) == 'ID_') {
-
-                                    $table_join                                                     = substr($db_titles[$fname], 3);
-                                    $field_join                                                     = $table_join . '_id';
-                                    $this->response_tables_info[$table]['table_joins'][$field_join] = $table_join;
+                                    $this->response_tables_info[$table]['table_joins'][$fname] = preg_replace('/^ID_/', '', $fname);
                                 }
                             }
                         }
@@ -512,73 +491,64 @@ class SalesLayer_Conn
 
                         $this->response_tables_info[$table]['count_modified'] =
                         $this->response_tables_info[$table]['count_deleted']  = 0;
+                        $this->response_table_deleted_ids[$table]             = [];
 
                         if ($this->response_tables_info[$table]['count_registers']) {
-
-                            $id_parent = array_search('ID_PARENT', $this->data_returned['data_schema'][$table]);
 
                             foreach ($this->data_returned['data'][$table] as &$fields) {
 
                                 if ('D' == $fields[0]) {
 
                                     $this->response_table_deleted_ids[$table][]      =
-                                    $this->response_tables_data[$table]['deleted'][] = $fields[$ord_ID];
-                                    ++$this->response_tables_info[$table]['count_deleted'];
+                                    $this->response_tables_data[$table]['deleted'][] = $fields[1];
+                                    $this->response_tables_info[$table]['count_deleted'] ++;
 
                                 } else {
                                     $data                                        = [];
-                                    $this->response_table_modified_ids[$table][] = $data['id'] = $fields[$ord_ID];
-
-                                    if (false !== $id_parent) {
-                                        $data[$parent_id_field] = (isset($fields[$id_parent]) ? $fields[$id_parent] : 0);
-                                    }
+                                    $this->response_table_modified_ids[$table][] = $data['ID'] = $fields[1];
 
                                     foreach ($this->data_returned['data_schema'][$table] as $ord => $field) {
 
                                         $fname = (!is_array($field)) ? $field : key($field);
 
-                                        if (!in_array($fname, ['STATUS', 'ID', 'ID_PARENT'])) {
+                                        if (!in_array($fname, ['STATUS', 'ID'])) {
 
-                                            if (substr($fname, 0, 3) == 'ID_') {
+                                            if ('REF' == $fname or substr($fname, 0, 3) == 'ID_') {
 
-                                                $fname        = substr((isset($db_titles[$fname]) ? $db_titles[$fname] : $fname), 3) . '_id';
                                                 $data[$fname] = $fields[$ord];
 
-                                            } else {
-                                                if (isset($fields[$ord])
-                                                    and is_array($fields[$ord])
-                                                    and isset($this->data_returned['data_schema'][$table][$ord][$fname])
-                                                    and is_array($this->data_returned['data_schema'][$table][$ord][$fname])) {
+                                            } else if (       isset($fields[$ord])
+                                                       and is_array($fields[$ord])
+                                                       and    isset($this->data_returned['data_schema'][$table][$ord][$fname])
+                                                       and is_array($this->data_returned['data_schema'][$table][$ord][$fname])) {
 
-                                                    $data['data'][$fname] = [];
+                                                $data['data'][$fname] = [];
 
-                                                    if (isset($fields[$ord][0]) and 'U' != $fields[$ord][0]) {
+                                                if (isset($fields[$ord][0]) and 'U' != $fields[$ord][0]) {
 
-                                                        foreach ($fields[$ord] as $fsub) {
-                                                            if (is_array($fsub)) {
-                                                                foreach ($fsub as $k => $a) {
-                                                                    if ($k > 1) {
-                                                                        $ext = $this->data_returned['data_schema'][$table][$ord][$fname][intval($k)];
-                                                                        if (is_array($ext)) {
-                                                                            $ext = $ext['field'];
-                                                                        }
+                                                    foreach ($fields[$ord] as $fsub) {
 
-                                                                        $data['data'][$fname][$fsub[1]][$ext]      =
-                                                                        $this->response_files_list['list_files'][] = $a;
-                                                                    }
+                                                        if (is_array($fsub)) {
+                                                            foreach ($fsub as $k => $a) {
+                                                                if ($k > 1) {
+                                                                    $ext = $this->data_returned['data_schema'][$table][$ord][$fname][intval($k)];
+                                                                    if (is_array($ext)) { $ext = $ext['field']; }
+                                                                    $data['data'][$fname][$fsub[1]][$ext]      =
+                                                                    $this->response_files_list['list_files'][] = $a;
                                                                 }
                                                             }
                                                         }
                                                     }
-                                                } else {
-                                                    $data['data'][$fname] = (isset($fields[$ord]) ? $fields[$ord] : '');
                                                 }
+
+                                            } else {
+                                                $data['data'][$fname] = (isset($fields[$ord]) ? $fields[$ord] : '');
                                             }
                                         }
                                     }
 
                                     $this->response_tables_data[$table]['modified'][] = $data;
-                                    ++$this->response_tables_info[$table]['count_modified'];
+                                    $this->response_tables_info[$table]['count_modified']++;
                                 }
                             }
                             unset($fields);
@@ -812,8 +782,8 @@ class SalesLayer_Conn
     public function get_response_table_deleted_ids($table = null)
     {
         return (null === $table) ? $this->response_table_deleted_ids
-        :
-        ((isset($this->response_table_deleted_ids[$table])) ? $this->response_table_deleted_ids[$table] : array());
+							       :
+							       ((isset($this->response_table_deleted_ids[$table])) ? $this->response_table_deleted_ids[$table] : []);
     }
 
     /**
@@ -821,11 +791,11 @@ class SalesLayer_Conn
      *
      * @return array
      */
-    public function get_response_table_modified_ids($table = null)
+	public function get_response_table_modified_ids($table = null)
     {
-        return (null === $table) ? $this->response_table_modified_ids
-        :
-        ((isset($this->response_table_modified_ids[$table])) ? $this->response_table_modified_ids[$table] : array());
+        return (null === $table ? $this->response_table_modified_ids
+	           :
+	           (isset($this->response_table_modified_ids[$table]) ? $this->response_table_modified_ids[$table] : []));
     }
 
     /**
@@ -902,6 +872,30 @@ class SalesLayer_Conn
         if (null !== $this->data_returned and isset($this->data_returned['schema']) and isset($this->data_returned['schema']['language_table_names'])) {
 
             return $this->data_returned['schema']['language_table_names'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get table joins
+     *
+     * @return array
+     *
+     */
+    public function get_response_table_joins($table = null)
+    {
+        if (null !== $this->response_tables_info and is_array($this->response_tables_info)) {
+            if (null === $table) {
+                $list = [];
+                foreach ($this->response_tables_info as $table => $info) { 
+                    $list[$table] = (isset($info['table_joins']) ? $info['table_joins'] : []); 
+                }
+
+                return $list;
+            }
+
+            return (isset($this->response_tables_info[$table]['table_joins']) ? $this->response_tables_info[$table]['table_joins'] : []);
         }
 
         return null;

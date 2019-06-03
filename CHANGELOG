@@ -1,6 +1,19 @@
+## SalesLayer-Conn.php 1.29
+
+Important:
+Version 1.29 of SalesLayer_Conn contains updates which are incompatible with previous versions when it comes to returning lists of results.
+
 ## SalesLayer-Conn.php 1.18
 
 * Initial release
+
+------------------------------------------------------------------------------------------------------------------------
+
+## SalesLayer-Updater.php 1.20
+
+Important Atención:
+Version 1.20 of SalesLayer_Updater contains updates meaning that table management may cause errors when working with previous versions. 
+We recommend deleting the tables and regenerating them using the new version of SalesLayer_Updater.
 
 ## SalesLayer-Updater.php 1.10
 
