@@ -2587,7 +2587,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                         } else if ($schema[$field]['type'] == 'list') {
 
-                                            $res[$k][$field] = explode(',', $value);
+                                            $res[$k][$field] = preg_split('/\s*,\s*/', $value, -1, PREG_SPLIT_NO_EMPTY);
                                         }
                                     }
                                 }
