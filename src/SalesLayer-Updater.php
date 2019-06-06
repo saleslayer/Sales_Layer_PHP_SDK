@@ -2099,15 +2099,15 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                             if               (!$multi_db_table)           $multi_db_table  = $sly_table;
                                             if (!isset($fields[$multi_db_table])) $fields[$multi_db_table] = '';
 
+                                            $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')."`{$fields_conn[$d_field]}`='";
+
                                             if (is_array($value)) {
 
-                                                $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')."`{$fields_conn[$d_field]}` = '".
-                                                                            addslashes($schema[$d_field]['type'] == 'list' ? implode(',' , $value) : json_encode($value))."'";
+                                                $fields[$multi_db_table] .= addslashes($schema[$db_field]['type'] == 'list' ? implode(',' , $value) : json_encode($value))."'";
 
                                             } else {
 
-                                                $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')."`{$fields_conn[$d_field]}` = ".
-                                                                            (empty($value) ? 'null' : "'".addslashes($value)."'");
+                                                $fields[$multi_db_table] .= (empty($value) ? 'null' : "'".addslashes($value)."'");
                                             }
                                         }
                                     }
