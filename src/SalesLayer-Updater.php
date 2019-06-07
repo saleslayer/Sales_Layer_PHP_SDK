@@ -2099,15 +2099,15 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                             if               (!$multi_db_table)           $multi_db_table  = $sly_table;
                                             if (!isset($fields[$multi_db_table])) $fields[$multi_db_table] = '';
 
-                                            $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')."`{$fields_conn[$d_field]}`='";
+                                            $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')."`{$fields_conn[$d_field]}`=";
 
                                             if (is_array($value)) {
 
-                                                $fields[$multi_db_table] .= addslashes($schema[$db_field]['type'] == 'list' ? implode(',' , $value) : json_encode($value))."'";
+                                                $fields[$multi_db_table] .= "'".addslashes($schema[$db_field]['type'] == 'list' ? implode(',' , $value) : json_encode($value))."'";
 
                                             } else {
 
-                                                $fields[$multi_db_table] .= (empty($value) ? 'null' : "'".addslashes($value)."'");
+                                                $fields[$multi_db_table] .= (($value === null or $value === '') ? 'null' : "'".addslashes($value)."'");
                                             }
                                         }
                                     }
@@ -2421,7 +2421,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                         if ($db_field) { 
                                             
                                             $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                            $fgroup  .= ($fgroup ? ', ' : '')."`$this_db_table`.`$db_field`";
+                                            $fgroup  .= ($fgroup ? ', ' : '').($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`";
 
                                             if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
                                         }
@@ -2442,7 +2442,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                                                         $param['condition']."'".addslashes($param['value'])."'");
 
                                 $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                $clause        = "`$this_db_table`.`$db_field`$filter";
+                                $clause        = ($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`$filter";
 
                                 if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
 
@@ -2452,7 +2452,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                     && $db_field = $this->__get_real_field($param['field'], $table, $base_language)) {
 
                                     $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                    $clause        = "($clause or `$this_db_table`.`$db_field`$filter";
+                                    $clause        = "($clause or ".($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`$filter";
 
                                     if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
                                 }
@@ -2483,7 +2483,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             if ($db_field and strpos($select, "`$db_field`") !== false) {
 
-                                $sql_group .= ($sql_group ? ', ' : '')."`$db_field`";
+                                $sql_group .= ($sql_group ? ', ' : '')."BINARY `$db_field`";
                             }
                         }
                     }
