@@ -2366,7 +2366,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             $select .= ($select ? ', ' : '')."`$this_db_table`.`$db_field` as `$field_name`";
 
-                            if (!isset($tables_db[$db_table])) $tables_db[$this_db_table] = 1;
+                            if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
                         }
 
                         unset($info);
@@ -2425,7 +2425,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         $this_db_table = $this->__get_table_for_field($db_field, $table);
                         $sql_order     = "`$this_db_table`.`$db_field` ASC";
                     
-                        if (!isset($tables_db[$db_table])) $tables_db[$db_table] = 1;
+                        if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
                     }
                 }
 
@@ -2434,7 +2434,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     $this_db_table = $this->__get_table_for_field($field_title, $table);
                     $sql_order     = "`$this_db_table`.`$field_title` ASC";
 
-                    if (!isset($tables_db[$db_table])) $tables_db[$db_table] = 1;
+                    if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
                 }
 
                 $field_id      = $this->__get_field_key($db_table);
