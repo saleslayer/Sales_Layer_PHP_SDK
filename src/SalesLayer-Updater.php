@@ -2386,7 +2386,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 }
 
                 $sql_group = $this->__get_group_for_extract($group, $schema, $table, $language, $base_language);
-
                 $sql_order = '';
 
                 if (is_array($order)) {
@@ -2542,6 +2541,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 list($where, $tables_db) = $this->__get_where_for_extract($conditions, $schema, $table, $force_default_language, $language, $base_language);
                 $sql_group               = $this->__get_group_for_extract($group, $schema, $table, $language, $base_language);
 
+                if (!isset($tables_db[$sly_table])) $tables_db[$sly_table] = 1;
+
                 $field_id      = $this->__get_field_key($db_table);
                 $string_tables = '';
 
@@ -2557,7 +2558,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     if ($sql_group) {
 
-                        $SQL = "select SQL_CACHE sum(count) as total from (select count(1) as total from $string_tables".($where ? ' where '.$where : '').' group by '.$sql_group.') as q';
+                        $SQL = "select SQL_CACHE count(1) as total from (select count(1) as total from $string_tables".($where ? ' where '.$where : '').' group by '.$sql_group.') as q';
 
                     } else {
                         
