@@ -770,7 +770,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      */
 
     private function __get_real_field ($field, $table, $language = null) {
-
+ 
         $schema    = $this->get_database_table_schema($table, false);
         $db_table  = $this->__verify_table_name($table);
         $sly_table = $this->table_prefix.$db_table;
@@ -778,12 +778,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if (is_array($schema) && (isset($schema[$field]) || isset($fields[$field]))) {
 
-            $field = $field.((isset($schema[$field]) && isset($schema[$field]['has_multilingual']) && $schema[$field]['has_multilingual']) ? '_'.$this->__test_language($language) : '');
+            $db_field = $field.((isset($schema[$field]) && isset($schema[$field]['has_multilingual']) && $schema[$field]['has_multilingual']) ? '_'.$this->__test_language($language) : '');
 
-            if (isset($fields[$field])) { return $field; }
+            if (isset($fields[$db_field])) { return $db_field; }
         }
 
-        return '';
+        return (isset($fields[$field]) ? $field : '');
     }
 
     /**
@@ -987,7 +987,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 if ($field !== 'ID_PARENT' and ($info['type'] == 'key' or substr($field, 0, 3) == 'ID_')) {
 
-                    $fields[$field_db] = $this->__get_db_table_from_key($field_db);
+                    $fields[$field] = $this->__get_db_table_from_key($field);
                 }
             }
         }
@@ -2366,7 +2366,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             $select .= ($select ? ', ' : '')."`$this_db_table`.`$db_field` as `$field_name`";
 
-                            if (!isset($tables_db[$table_db])) $tables_db[$this_db_table] = 1;
+                            if (!isset($tables_db[$db_table])) $tables_db[$this_db_table] = 1;
                         }
 
                         unset($info);
@@ -2378,116 +2378,16 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if ($select) {
 
-                $where      =
-                $sql_group  =
-                $sql_order  = '';
-                $group_open = 0;
+                list($where, $tables_db_where) = $this->__get_where_for_extract($conditions, $schema, $table, $force_default_language, $language, $base_language);
 
-                if (is_array($conditions)) {
-
-                    foreach ($conditions as &$param) {
-
-                        if (isset($param['group'])) {
-
-                            if ($param['group'] == 'close') {
-
-                                if ($group_open) $where .= ')'; else -- $group_open;
-
-                            } else {
-
-                                $where .= ' '.($where ? (in_array($param['group'], array('or', 'not', 'xor')) ? $param['group'] : 'and').' ' : '').' (';
-
-                                ++ $group_open;
-                            }
-
-                        } else {
-
-                            $clause = '';
-
-                            if  (isset($param['search']) && $param['search']) {
-
-                                $sfields = explode(',', $param['field']);
-                                $fgroup  = '';
-
-                                foreach ($sfields as $field) {
-
-                                    if (isset($schema[$field])) {
-
-                                        if (!$db_field = $this->__get_real_field($field, $table, $language)) {
-
-                                             $db_field = $this->__get_real_field($field, $table, $base_language);
-                                        }
-
-                                        if ($db_field) { 
-                                            
-                                            $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                            $fgroup  .= ($fgroup ? ', ' : '').($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`";
-
-                                            if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
-                                        }
-                                    }
-                                }
-
-                                if ($fgroup) {
-
-                                    $clause = 'lower('.((count($sfields) > 1) ? "concat($fgroup)" : $fgroup).") like '%".addslashes(strtolower($param['search']))."%'";
-                                }
-
-                            } else if (isset($param['value']) && $db_field = $this->__get_real_field($param['field'], $table, $language)) {
-
-                                if (!$param['condition']) $param['condition'] = '=';
-
-                                $filter = (is_array($param['value']) ? ($param['condition'] != '=' ? ' NOT' : '')." IN ('".implode("','", array_map('addslashes', $param['value']))."')"
-                                                                        :
-                                                                        $param['condition']."'".addslashes($param['value'])."'");
-
-                                $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                $clause        = ($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`$filter";
-
-                                if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
-
-                                if (   $force_default_language
-                                    && isset($schema[$param['field']]['has_multilingual'])
-                                    &&       $schema[$param['field']]['has_multilingual']
-                                    && $db_field = $this->__get_real_field($param['field'], $table, $base_language)) {
-
-                                    $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                    $clause        = "($clause or ".($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`$filter";
-
-                                    if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
-                                }
-                            }
-
-                            if ($clause) {
-
-                                $where .= (($where && substr($where, -1) != '(') ? ' '.($param['logic'] ? $param['logic'] : 'and').' ' : '').$clause;
-                            }
-                        }
-                    }
-
-                    unset($param);
+                if (count($tables_db_where)) {
+    
+                    $tables_db = array_merge($tables_db, $tables_db_where);
                 }
 
-                if ($group !== null and $group) {
+                $sql_group = $this->__get_group_for_extract($group, $schema, $table, $language, $base_language);
 
-                    if (!is_array($group)) $group = [ $group ];
-                    
-                    foreach ($group as $field) {
-
-                        if (isset($schema[$field])) {
-
-                               if (!$db_field = $this->__get_real_field($field, $table, $language)) {
-
-                                    $db_field = $this->__get_real_field($field, $table, $base_language);
-                            }
-
-                            if ($db_field and strpos($select, "`$db_field`") !== false) {
-
-                                $sql_group .= ($sql_group ? ', ' : '')."BINARY `$db_field`";
-                            }
-                        }
-                    }
-                }
+                $sql_order = '';
 
                 if (is_array($order)) {
 
@@ -2525,7 +2425,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         $this_db_table = $this->__get_table_for_field($db_field, $table);
                         $sql_order     = "`$this_db_table`.`$db_field` ASC";
                     
-                        if (!isset($tables_db[$table_db])) $tables_db[$table_db] = 1;
+                        if (!isset($tables_db[$db_table])) $tables_db[$db_table] = 1;
                     }
                 }
 
@@ -2534,7 +2434,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     $this_db_table = $this->__get_table_for_field($field_title, $table);
                     $sql_order     = "`$this_db_table`.`$field_title` ASC";
 
-                    if (!isset($tables_db[$table_db])) $tables_db[$table_db] = 1;
+                    if (!isset($tables_db[$db_table])) $tables_db[$db_table] = 1;
                 }
 
                 $field_id      = $this->__get_field_key($db_table);
@@ -2601,6 +2501,210 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         }
 
         return [];
+    }
+
+    /**
+     *  Get the total number of rows of extract with conditions
+     *
+     * @param $table string database table
+     * @param $language string language need
+     * @param $conditions array for where
+     * @param $force_default_language boolean include default language info
+     * @param $group array list order data
+     */
+
+    public function get_num_rows (
+        
+        $table, 
+        $language               = null, 
+        $conditions             = null, 
+        $force_default_language = false, 
+        $group                  = null
+    
+        ) {
+
+        $this->get_database_tables();
+
+        $db_table  = $this->__verify_table_name($table); 
+        $sly_table = $this->table_prefix.$db_table;
+
+        if (in_array($sly_table, $this->database_tables)) {
+
+            $schema = $this->get_database_table_schema($table, false);
+
+            if (is_array($schema) && count($schema)) {
+
+                $language      = $this->__test_language($language);
+                $base_language = $this->get_default_language();
+
+                if ($force_default_language && $language == $base_language) { $force_default_language = false; }
+
+                list($where, $tables_db) = $this->__get_where_for_extract($conditions, $schema, $table, $force_default_language, $language, $base_language);
+                $sql_group               = $this->__get_group_for_extract($group, $schema, $table, $language, $base_language);
+
+                $field_id      = $this->__get_field_key($db_table);
+                $string_tables = '';
+
+                foreach (array_keys($tables_db) as $this_db_table) {
+
+                    if ($this_db_table) {
+                        
+                        $string_tables .= ($string_tables ? " left join `$this_db_table` using(`$field_id`)" : "`$this_db_table`");
+                    }
+                }
+
+                if ($string_tables) {
+
+                    if ($sql_group) {
+
+                        $SQL = "select SQL_CACHE sum(count) as total from (select count(1) as total from $string_tables".($where ? ' where '.$where : '').' group by '.$sql_group.') as q';
+
+                    } else {
+                        
+                        $SQL = "select SQL_CACHE count(1) as total from $string_tables".($where ? ' where '.$where : '');
+                    }
+
+                    $res = $this->DB->execute($this->SQL_list[] = $SQL);
+
+                    if (isset($res[0])) {
+
+                        return $res[0]['total'];
+
+                    } else if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     *  Get where conditions for export
+     *
+     */
+
+    private function __get_where_for_extract ($conditions, &$schema, $table, $force_default_language, $language, $base_language) {
+
+        $where      = '';
+        $tables_db  = [];
+        $group_open = 0;
+
+        if (is_array($conditions)) {
+
+            foreach ($conditions as &$param) {
+
+                if (isset($param['group'])) {
+
+                    if ($param['group'] == 'close') {
+
+                        if ($group_open) $where .= ')'; else -- $group_open;
+
+                    } else {
+
+                        $where .= ' '.($where ? (in_array($param['group'], array('or', 'not', 'xor')) ? $param['group'] : 'and').' ' : '').' (';
+
+                        ++ $group_open;
+                    }
+
+                } else {
+
+                    $clause = '';
+
+                    if  (isset($param['search']) && $param['search']) {
+
+                        $sfields = explode(',', $param['field']);
+                        $fgroup  = '';
+
+                        foreach ($sfields as $field) {
+
+                            if (isset($schema[$field])) {
+
+                                if (!$db_field = $this->__get_real_field($field, $table, $language)) {
+
+                                     $db_field = $this->__get_real_field($field, $table, $base_language);
+                                }
+
+                                if ($db_field) { 
+                                    
+                                    $this_db_table = $this->__get_table_for_field($db_field, $table);
+                                    $fgroup  .= ($fgroup ? ', ' : '').($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`";
+
+                                    if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                                }
+                            }
+                        }
+
+                        if ($fgroup) {
+
+                            $clause = 'lower('.((count($sfields) > 1) ? "concat($fgroup)" : $fgroup).") like '%".addslashes(strtolower($param['search']))."%'";
+                        }
+
+                    } else if (isset($param['value']) && $db_field = $this->__get_real_field($param['field'], $table, $language)) {
+
+                        if (!$param['condition']) $param['condition'] = '=';
+
+                        $filter = (is_array($param['value']) ? ($param['condition'] != '=' ? ' NOT' : '')." IN ('".implode("','", array_map('addslashes', $param['value']))."')"
+                                                                :
+                                                                $param['condition']."'".addslashes($param['value'])."'");
+
+                        $this_db_table = $this->__get_table_for_field($db_field, $table);
+                        $clause        = ($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`$filter";
+
+                        if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+
+                        if (   $force_default_language
+                            && isset($schema[$param['field']]['has_multilingual'])
+                            &&       $schema[$param['field']]['has_multilingual']
+                            && $db_field = $this->__get_real_field($param['field'], $table, $base_language)) {
+
+                            $this_db_table = $this->__get_table_for_field($db_field, $table);
+                            $clause        = "($clause or ".($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`$filter";
+
+                            if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                        }
+                    }
+
+                    if ($clause) {
+
+                        $where .= (($where && substr($where, -1) != '(') ? ' '.($param['logic'] ? $param['logic'] : 'and').' ' : '').$clause;
+                    }
+                }
+            }
+        }
+
+        return [ $where, $tables_db ];
+    }
+
+    /**
+     *  Get SQL group for export
+     */
+
+     private function __get_group_for_extract ($group, &$schema, $table, $language, $base_language) {
+
+        $sql_group = '';
+
+        if ($group !== null and $group) {
+
+            if (!is_array($group)) $group = [ $group ];
+            
+            foreach ($group as $field) {
+
+                if (isset($schema[$field])) {
+
+                    if (!$db_field = $this->__get_real_field($field, $table, $language)) {
+
+                         $db_field = $this->__get_real_field($field, $table, $base_language);
+                    }
+
+                    if ($db_field) {
+
+                        $sql_group .= ($sql_group ? ', ' : '')."BINARY `$db_field`";
+                    }
+                }
+            }
+        }
+
+        return $sql_group;
     }
 
     /** 
