@@ -2614,11 +2614,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     if  (isset($param['search']) && $param['search']) {
 
                         $sfields = explode(',', $param['field']);
+                        $sfields = array_unique($sfields);
                         $fgroup  = '';
 
                         foreach ($sfields as $field) {
 
-                            if (isset($schema[$field])) {
+                            if ($field && isset($schema[$field])) {
 
                                 if (!$db_field = $this->__get_real_field($field, $table, $language)) {
 
@@ -2628,16 +2629,29 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 if ($db_field) { 
                                     
                                     $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                    $fgroup  .= ($fgroup ? ', ' : '').($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`";
+                                    $fgroup  .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
 
                                     if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                                
+                                    if (   $force_default_language 
+                                        && $language != $base_language
+                                        && isset($schema[$field]['has_multilingual'])
+                                        &&       $schema[$field]['has_multilingual']
+                                        && $db_field = $this->__get_real_field($field, $table, $base_language)) {
+
+                                        $this_db_table = $this->__get_table_for_field($db_field, $table);
+                                        $fgroup  .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
+
+                                        if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                                    }
                                 }
                             }
                         }
 
                         if ($fgroup) {
 
-                            $clause = 'lower('.((count($sfields) > 1) ? "concat($fgroup)" : $fgroup).") like '%".addslashes(strtolower($param['search']))."%'";
+                            $clause = ($param['strict'] ? 'BINARY ' : '').
+                                      'lower('.(count($sfields) > 1 ? "concat($fgroup)" : $fgroup).") like '%".addslashes(strtolower($param['search']))."%'";
                         }
 
                     } else if (isset($param['value']) && $db_field = $this->__get_real_field($param['field'], $table, $language)) {
@@ -2654,6 +2668,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
 
                         if (   $force_default_language
+                            && $language != $base_language
                             && isset($schema[$param['field']]['has_multilingual'])
                             &&       $schema[$param['field']]['has_multilingual']
                             && $db_field = $this->__get_real_field($param['field'], $table, $base_language)) {
