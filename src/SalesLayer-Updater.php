@@ -159,13 +159,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function database_connect ($database = null, $username = null, $password = null, $hostname = null) {
 
-        $this->__set_database_credentials ($database, $username, $password, $hostname);
+        $this->__set_database_credentials($database, $username, $password, $hostname);
 
         $this->DB = new slyr_SQL($this->database, $this->username, $this->password, $this->hostname);
 
         if ($this->DB->error != null) {
 
-            $this->__trigger_error ($this->DB->error, 104);
+            $this->__trigger_error($this->DB->error, 104);
 
             return false;
         }
@@ -231,10 +231,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     private function __set_database_credentials ($database = null, $username = null, $password = null, $hostname = null) {
 
-        if ($database!=null) { $this->database = $database; }
-        if ($database!=null) { $this->username = $username; }
-        if ($database!=null) { $this->password = $password; }
-        if ($database!=null) { $this->hostname = $hostname; }
+        if ($database != null) { $this->database = $database; }
+        if ($database != null) { $this->username = $username; }
+        if ($database != null) { $this->password = $password; }
+        if ($database != null) { $this->hostname = $hostname; }
     }
 
     /**
@@ -1166,8 +1166,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $this->get_database_tables();
 
-                $tables = array_keys($this->get_response_table_information());
-    
+                $tables     = array_keys($this->get_response_table_information());
+                $new_tables = [];
+
                 foreach ($tables as $table) {
 
                     $db_table = $this->__verify_table_name($table);
@@ -1175,6 +1176,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     if (!in_array($this->table_prefix.$db_table, $this->database_tables)) {
 
                         $this->create_database_table($table);
+
+                        $new_tables[] = $table;
 
                     } else {
 
@@ -1187,6 +1190,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     if (count($this->get_response_table_modified_ids($table)) || count($this->get_response_table_deleted_ids($table))) {
              
                         $this->update_database_table_data($table);
+
+                    } else if (!in_array($table, $new_tables) && $this->get_response_action() == 'refresh') {
+
+                        $this->clean_database_table_data($table);
                     }
                 }
 
@@ -1750,6 +1757,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $this->__test_config_initialized();
 
+        if ((   !isset($this->database_config['conn_schema']['force_output_default_language']) ||
+                      !$this->database_config['conn_schema']['force_output_default_language']) && 
+             !in_array($this->database_config['default_language'], $this->database_config['languages'])) {
+
+            return reset($this->database_config['languages']);
+        }
+
         return $this->database_config['default_language'];
     }
 
@@ -2246,6 +2260,43 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         $errors = true;
                     }
+                }
+            }
+
+            if (!$errors) return true;
+        }
+
+        return false;
+    }
+    
+    /**
+     * Clean all data of table
+     *
+     * @param $table string
+     *
+     * @return boolean
+     */
+
+    public function clean_database_table_data ($table) {
+
+        $this->get_database_tables();
+
+        $db_table  = $this->__verify_table_name($table);
+        $sly_table = $this->table_prefix.$db_table;
+
+        if (in_array($sly_table, $this->database_tables)) {
+
+            $this->get_database_table_fields($sly_table);
+
+            foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
+
+                $SQL = "TRUNCATE TABLE `$multi_db_table`;";
+
+                if (!$this->DB->execute($this->SQL_list[] = $SQL) && $multi_db_table == $sly_table) {
+
+                    if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
+
+                    $errors = true;
                 }
             }
 
