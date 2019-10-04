@@ -431,8 +431,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                         'name'   => $field,
                                         'type'   => $struc['type'],
                                         'titles' => (isset($struc['titles']) ? $struc['titles'] : [ $default_language => $struc['title'] ]),
-                                        'tag_translations' => (isset($struc['tag_translations']) ? $struc['tag_translations'] : [ $default_language => $struc['title'] ])
                                     ];
+                                    
+                                    if(isset($struc['tag_translations'])){
+                                        
+                                        $data_schema[$table]['fields'][$db_field]['tag_translations'] = $struc['tag_translations'];
+                                    }
                                 }
 
                                 if ($struc['type'] == 'image') {
