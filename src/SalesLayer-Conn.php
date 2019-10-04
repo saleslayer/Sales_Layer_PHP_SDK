@@ -453,6 +453,10 @@ class SalesLayer_Conn
                             } else {
                                 $this->response_tables_info[$table]['fields'][$field]['title'] = $field;
                             }
+                            
+                            if (isset($props['tag_translations']) && $props['tag_translations']) {
+                                $this->response_tables_info[$table]['fields'][$field]['tag_translations'] = $props['tag_translations'];
+                            } 
 
                             if (isset($props['table_key'])) {
                                 $this->response_tables_info[$table]['fields'][$field]['title'] = $props['table_key'];

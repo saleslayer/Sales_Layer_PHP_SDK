@@ -430,7 +430,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                         'name'   => $field,
                                         'type'   => $struc['type'],
-                                        'titles' => (isset($struc['titles']) ? $struc['titles'] : [ $default_language => $struc['title'] ])
+                                        'titles' => (isset($struc['titles']) ? $struc['titles'] : [ $default_language => $struc['title'] ]),
+                                        'tag_translations' => (isset($struc['tag_translations']) ? $struc['tag_translations'] : [ $default_language => $struc['title'] ])
                                     ];
                                 }
 
@@ -2031,6 +2032,77 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         
         return $field;
     }
+    
+    /**
+     * Get list field values translated
+     *
+     * @param string $language (ISO 639-1)
+     * @return array
+     *
+     */
+
+    public function get_list_field_values_translations ($language, $field, $table, $values) {
+        
+        $this->__test_config_initialized();
+        
+        if(!is_array($values)) {
+            
+            $values = preg_split('/\s*,\s*/', $values, -1, PREG_SPLIT_NO_EMPTY);
+            $return_as_string = true;
+        } else {
+            
+            $return_as_string = false;
+        }
+
+        if ($field and $table) {
+
+            if (isset($this->database_config['data_schema'][$table]) and isset($this->database_config['data_schema'][$table])) {
+
+                if (isset($this->database_config['data_schema'][$table]['fields'][$field])) {
+
+                    $field_info =& $this->database_config['data_schema'][$table]['fields'][$field];
+
+                    if (isset($field_info['tag_translations'])) {
+
+                        $default_language = $this->get_default_language();
+                        $result = [];
+
+                        foreach($values as $k => $v) {
+                         
+                            if ( isset($field_info['tag_translations'][$language][$v])) {    
+
+                                $result[$k] = $field_info['tag_translations'][$language][$v];
+
+                            } else if (isset($field_info['tag_translations'][$default_language][$v])) {    
+
+                                $result[$k] = $field_info['tag_translations'][$default_language][$v];
+                                
+                            } else {
+                                
+                                $result[$k] = $v;
+                                
+                            }
+                            
+                        }
+                        
+                        if($return_as_string){
+                            
+                            return implode(",", $result);
+                            
+                        } else {
+                            
+                            return $result;
+                            
+                        }
+                        
+                    }
+
+                }
+            }
+        }
+        
+        return $values;
+    }
         
     /**
      * Update batabase tables
@@ -2363,6 +2435,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $select          =
             $field_title     = '';
             $has_json_fields = 0;
+            $has_list_fields = false;
             $tables_db       = [];
 
             $schema = $this->get_database_table_schema($table, false);
@@ -2393,6 +2466,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         $is_file    =  in_array($info['type'], [ 'image', 'file' ]);
 
                         if ($is_file) ++ $has_json_fields;
+                        
+                        if($info['type'] == 'list') {$has_list_fields = true;}
 
                         $multi = ((isset($info['has_multilingual']) && $info['has_multilingual']));
       
@@ -2523,7 +2598,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         if (!isset($res[0])) { $res = array($res); }
 
-                        if ($has_json_fields) {
+                        if ($has_json_fields || $has_list_fields) {
 
                             foreach ($res as $k =>& $data) {
 
@@ -2537,7 +2612,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                         } else if ($schema[$field]['type'] == 'list') {
 
-                                            $res[$k][$field] = preg_split('/\s*,\s*/', $value, -1, PREG_SPLIT_NO_EMPTY);
+                                            $res[$k][$field] = $this->get_list_field_values_translations($language, $field, $table, $value);
                                         }
                                     }
                                 }
