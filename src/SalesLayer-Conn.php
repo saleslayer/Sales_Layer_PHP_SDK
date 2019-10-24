@@ -598,7 +598,7 @@ class SalesLayer_Conn
             if (is_array($delete_items) and count($delete_items)) {
                 $data['delete_data'] = array();
 
-                foreach ($update_items as $table => &$items) {
+                foreach ($delete_items as $table => &$items) {
                     if (is_array($items) and count($items)) {
                         $data['delete_data'][$table] = $items;
                     }
