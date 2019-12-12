@@ -9,18 +9,18 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2019-05-21
+ * @modified 2019-12-12
  *
- * @version 1.29
+ * @version 1.30
  */
 class SalesLayer_Conn 
 {
 
-    public $version_class = '1.29';
+    public $version_class = '1.30';
 
     public $url = 'api.saleslayer.com';
 
-    public $SSL        = false;
+    public $SSL        = true;
     public $SSL_Cert   = null;
     public $SSL_Key    = null;
     public $SSL_CACert = null;
@@ -82,7 +82,7 @@ class SalesLayer_Conn
      * @param string $url       Url to SalesLayer API connection
      * @param bool   $forceuft8 Set PHP system default charset to utf-8
      */
-    public function __construct($codeConn = null, $secretKey = null, $SSL = true, $url = false, $forceuft8 = true)
+    public function __construct($codeConn = null, $secretKey = null, $SSL = null, $url = null, $forceuft8 = true)
     {
         if ($this->__has_system_requirements()) {
             if (true == $forceuft8) {
@@ -93,8 +93,8 @@ class SalesLayer_Conn
                 $this->set_identification($codeConn, $secretKey);
             }
 
-            $this->set_SSL_connection($SSL);
-            $this->set_URL_connection($url);
+            if ($SSL !== null) $this->set_SSL_connection($SSL);
+            if ($url !== null) $this->set_URL_connection($url);
         }
     }
 
@@ -156,7 +156,7 @@ class SalesLayer_Conn
             $URL .= '&parents_category_tree=1';
         }
 
-        return $URL;
+        return $URL.'&version=7';
     }
 
     /**
@@ -331,10 +331,10 @@ class SalesLayer_Conn
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
             if ($this->SSL && $this->SSL_Cert) {
-                curl_setopt($ch, CURLOPT_PORT, 443);
+                curl_setopt($ch, CURLOPT_PORT,    443);
                 curl_setopt($ch, CURLOPT_SSLCERT, $this->SSL_Cert);
-                curl_setopt($ch, CURLOPT_SSLKEY, $this->SSL_Key);
-                curl_setopt($ch, CURLOPT_CAINFO, $this->SSL_CACert);
+                curl_setopt($ch, CURLOPT_SSLKEY,  $this->SSL_Key);
+                curl_setopt($ch, CURLOPT_CAINFO,  $this->SSL_CACert);
             }
 
             if ($add_reference_files) {
@@ -473,7 +473,7 @@ class SalesLayer_Conn
                 $this->response_table_modified_ids =
                 $this->response_table_deleted_ids  = [];
 
-                if (is_array($this->data_returned['data_schema'])) {
+                if (isset($this->data_returned['data_schema'])) {
 
                     foreach ($this->data_returned['data_schema'] as $table => $info) {
 
@@ -580,11 +580,12 @@ class SalesLayer_Conn
      *
      * @return response to API
      */
-    public function set_info($update_items = array(), $delete_items = array(), $compression = false)
+    public function set_info($update_items = array(), $delete_items = array(), $compression = false, $force_directly = false)
     {
         $data = array();
 
         if ($this->hasConnector()) {
+            
             if (is_array($update_items) and count($update_items)) {
                 $data['input_data'] = array();
 
@@ -608,44 +609,55 @@ class SalesLayer_Conn
             unset($update_items, $delete_items, $items);
 
             if (count($data)) {
-                $ch = curl_init($this->__get_api_url());
 
-                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-
-                if ($this->SSL && $this->SSL_Cert) {
-                    curl_setopt($ch, CURLOPT_PORT, 443);
-
-                    curl_setopt($ch, CURLOPT_SSLCERT, $this->SSL_Cert);
-                    curl_setopt($ch, CURLOPT_SSLKEY, $this->SSL_Key);
-                    curl_setopt($ch, CURLOPT_CAINFO, $this->SSL_CACert);
-
+                if ($force_directly) {
+                    $data['input_data_directly'] = 1;
                 }
 
-                curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+                $ch = curl_init($this->__get_api_url());
+
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    
+                if ($this->SSL && $this->SSL_Cert) {
+                    curl_setopt($ch, CURLOPT_PORT,    443);
+                    curl_setopt($ch, CURLOPT_SSLCERT, $this->SSL_Cert);
+                    curl_setopt($ch, CURLOPT_SSLKEY,  $this->SSL_Key);
+                    curl_setopt($ch, CURLOPT_CAINFO,  $this->SSL_CACert);
+                }
+
+              //curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data)); unset($data);
 
                 if ($compression) {
                     curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
                 }
 
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
                 $response = curl_exec($ch);
 
                 if (false !== $response) {
-                    $response = @json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
 
-                    if (isset($response['input_response'])) {
-                        return $response['input_response'];
-                    }
-                    if (isset($response['error'])) {
-                        $this->__trigger_error('API error', $response['error']);
+                    $this->data_returned = @json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
+
+                    if (isset($this->data_returned['error'])) {
+                        
+                        $this->__trigger_error('API error', $this->data_returned['error']);
+                    
+                    } else if (is_array($this->data_returned)) {
+
+                        $this->__parsing_json_returned();
+                        
+                        return $this->data_returned['input_response'];
+
                     } else {
+
                         $this->__trigger_error('Void response or malformed: ' . $response, 101);
                     }
+
                 } else {
+
                     $this->__trigger_error('Error connection: ' . curl_error($ch), 102);
                 }
 
@@ -988,6 +1000,20 @@ class SalesLayer_Conn
 
         return null;
     }
+
+    /**
+     * Get the detailed information of the scheme.
+     *
+     * @return array
+     */
+     public function get_schema_information()
+     {
+         if (isset($this->data_returned['data_schema_info'])) {
+             return $this->data_returned['data_schema_info'];
+         }
+ 
+         return null;
+     }
 
     /**
      * Get number of images or files waiting in process.

@@ -13,14 +13,14 @@
 	$dbusername   = 'root';
 	$dbpassword   = '';
 
-	$CONNS=array(
+	$CONNS = [
 
 		'__Sales_Layer_connector_code__'=>'__Sales_Layer_secret__',
   		//'__other_Sales_Layer_connector_code__'=>'__other_Sales_Layer_secret__'
-	);
+	];
 
 	// Instantiate the class
-	$SLupdate = new SalesLayer_Updater ($dbname, $dbusername, $dbpassword, $dbhost);
+	$SLupdate = new SalesLayer_Updater($dbname, $dbusername, $dbpassword, $dbhost);
 
 	echo '<h4>Updater class version: '.$SLupdate->get_updater_class_version().'</h4>';
 
@@ -31,7 +31,7 @@
 
 	} else {
 
-		foreach ($CONNS as $codeConn=>$secretKey) {
+		foreach ($CONNS as $codeConn => $secretKey) {
 
 	        $SLupdate->set_identification($codeConn, $secretKey);
 
@@ -49,22 +49,20 @@
 
 	            echo "<h4>Response OK</h4>\n<p>";
 
-				$fields=array('section_name', 'section_description', 'image_reference');
+				$fields = ['section_name', 'section_description', 'image_reference'];
 
 	            echo "Query 1 (lang: en):<br>\n".print_r($SLupdate->extract('catalogue', $fields, 'en'), 1)."<br /><br />\n";
 
-                $fields=array('product_name');
+                $fields     = ['product_name'];
+	            $conditions = [
 
-	            $conditions=array(
-
-					'1'=>array(
+					'1' => [
 						'field' =>'product_name',
 						'search'=>'acme'
-					),
-				);
+					]
+				];
 
 	            echo "Query 2 (lang: fr, width conditions):<br>\n".print_r($SLupdate->extract('products', $fields, 'fr', $conditions), 1)."<br /><br />\n";
-
 				echo "</p>\n";
 			}
 		}
