@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2019-12-12
- * @version 1.20
+ * @modified 2020-03-10
+ * @version 1.23
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        require_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version    = '1.21';
+    public  $updater_version    = '1.23';
 
     public  $database           = null;
     public  $username           = null;
@@ -51,6 +51,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     private $rel_multitables    = [];
     private $database_config    = [];
     private $mysql_version      = null;
+    private $update_pagination  = null;
+    private $database_init_date = null;
 
     private $database_field_types = [
 
@@ -92,7 +94,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      */
 
-    public function __construct ($database = null, $username = null, $password = null, $hostname = null, $codeConn = null, $secretKey = null, $SSL = false, $url = false) {
+    public function __construct ($database = null, $username = null, $password = null, $hostname = null, $codeConn = null, $secretKey = null, $SSL = null, $url = null) {
 
         parent::__construct();
 
@@ -1157,6 +1159,30 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     }
 
     /**
+     * Set pagination for updates
+     *
+     * @param $length integer pagination length
+     *
+     */
+
+    public function set_update_pagination ($length) {
+
+        $this->update_pagination = $length;
+    }
+
+    /**
+     * Get pagination for updates
+     *
+     * @return integer pagination length
+     *
+     */
+
+    public function get_update_pagination () {
+
+        return ($this->update_pagination ? $this->update_pagination : 0);
+    }
+
+    /**
      * Update database
      *
      * @param $params array parameters
@@ -1172,12 +1198,21 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $this->__test_config_initialized($code);
 
-            if ($force_refresh == true || (isset($this->database_config['conn_code']) && $this->get_identification_code() != $this->database_config['conn_code'])) {
+            if (    $force_refresh == true 
+                || !isset($this->database_config['last_update']) 
+                || (isset($this->database_config['conn_code']) && $this->get_identification_code() != $this->database_config['conn_code'])) {
 
                 $this->database_config['last_update'] = null;
             }
-
+     
             if (!isset($this->test_update_stats['update']) || !$this->test_update_stats['update']) {
+
+                if ($this->update_pagination && !isset($params['pagination'])) {
+
+                    if (is_null($params)) $params = [];
+
+                    $params['pagination'] = $this->update_pagination;
+                }
 
                 $this->get_info($this->database_config['last_update'], $params, $connector_type);
 
@@ -1212,16 +1247,29 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         $this->update_database_table($table);
                     }
                 }
-            
-                foreach ($tables as $table) {
 
-                    if (count($this->get_response_table_modified_ids($table)) || count($this->get_response_table_deleted_ids($table))) {
-             
-                        $this->update_database_table_data($table);
+                $this->database_init_date = '';
+          
+                do {
 
-                    } else if (!in_array($table, $new_tables) && $this->get_response_action() == 'refresh') {
+                    foreach ($tables as $table) {
 
-                        $this->clean_database_table_data($table);
+                        if (count($this->get_response_table_modified_ids($table)) || count($this->get_response_table_deleted_ids($table))) {
+                
+                            $this->update_database_table_data($table);
+                        }
+                    }
+
+                } while ($this->get_next_page_info());
+
+                if ($this->get_response_action() == 'refresh') {
+
+                    foreach ($tables as $table) {
+
+                        if (!in_array($table, $new_tables)) {
+
+                            $this->clean_database_table_updated($table);
+                        }
                     }
                 }
 
@@ -2152,12 +2200,16 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $modified   = date('Y-m-d H:i:s');
             $ids        = [];
 
+            if (!$this->database_init_date) {
+                
+                $this->database_init_date = $modified;
+            }
+
             foreach ($this->get_database_table_ids($table, true) as $v) {
 
                 $ids[$v['id']] = [$v['conn_id'], array_flip(explode(',', $v['conn_id']))];
             }
             
-            $num_prev_ids     = count($ids);
             $ok_modifications = count($this->get_response_table_modified_ids($table));
             $ids_deleted      =       $this->get_response_table_deleted_ids ($table);
             $ok_deletes       = count($ids_deleted);
@@ -2346,19 +2398,38 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 }
             }
 
-            if ($num_prev_ids and $this->get_response_action() == 'refresh') {
+            if (!$errors) return true;
+        }
 
-                foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
+        return false;
+    }
+    
+    /**
+     * Remove outdated items from the table
+     *
+     * @param string $table
+     * @return boolean
+     */
 
-                    $SQL = "delete from `$multi_db_table` where `___modified`<'$modified'".
-                           (count($this->get_connectors_list()) > 1 ? " and fin_in_set('".$this->database_config['conn_id']."', `__conn_id__`)" : '').';';
+    public function clean_database_table_updated ($table) {
 
-                    if (!$this->DB->execute($this->SQL_list[] = $SQL) && $multi_db_table == $sly_table) {
+        if ($this->database_init_date) {
 
-                        if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
+            $this->get_database_tables();
 
-                        $errors = true;
-                    }
+            $db_table  = $this->__verify_table_name($table);
+            $sly_table = $this->table_prefix.$db_table;
+
+            foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
+
+                $SQL = "delete from `$multi_db_table` where `___modified`<'{$this->database_init_date}'".
+                       (count($this->get_connectors_list()) > 1 ? " and fin_in_set('".$this->database_config['conn_id']."', `__conn_id__`)" : '').';';
+
+                if (!$this->DB->execute($this->SQL_list[] = $SQL) && $multi_db_table == $sly_table) {
+
+                    if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
+
+                    $errors = true;
                 }
             }
 
@@ -2367,12 +2438,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         return false;
     }
-    
+
     /**
      * Clean all data of table
      *
      * @param $table string
-     *
      * @return boolean
      */
 

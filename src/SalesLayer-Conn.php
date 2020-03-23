@@ -9,14 +9,15 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2019-12-12
+ * @modified 2020-03-10
  *
- * @version 1.30
+ * @version 1.31
  */
+ 
 class SalesLayer_Conn 
 {
 
-    public $version_class = '1.30';
+    public $version_class = '1.31';
 
     public $url = 'api.saleslayer.com';
 
@@ -27,34 +28,49 @@ class SalesLayer_Conn
 
     public $connect_API_version = '1.17';
 
+    public $connection_timeout     = 1800;  // 30 minutes * 60 seconds
     public $response_error         = 0;
     public $response_error_message = '';
-
-    private $__codeConn  = null;
-    private $__secretKey = null;
-    private $__keyCypher = 'sha256'; // <-- or 'sha1'
-
-    protected $__group_multicategory                    = false;
-    protected $__get_same_parent_variants_modifications = false;
-    protected $__get_parent_modifications               = false;
-    protected $__get_parents_category_tree              = false;
-
-    public $data_returned        = null;
-    public $response_api_version = null;
-    public $response_time        = null;
-    public $response_action      = null;
-    public $response_tables_info = null;
-    public $response_tables_data = null;
-
-    public $response_table_modified_ids = null;
-    public $response_table_deleted_ids  = null;
-    public $response_files_list         = null;
-    public $response_offline_file       = null;
-    public $response_waiting_files      = null;
+    public $output_pagination      = 5000;
 
     public $time_unlimit = true;
     public $memory_limit = ''; // <-- examples: 512M or 1024M
     public $user_abort   = false;
+
+    public $data_returned;   
+    public $response_api_version;
+    public $response_time;
+    public $response_action;
+    public $response_tables_info;
+    public $response_tables_data;
+
+    public $response_table_modified_ids;
+    public $response_table_deleted_ids;
+    public $response_files_list;
+    public $response_offline_file;
+    public $response_waiting_files;
+    public $response_next_page;
+    public $response_page_count;
+    public $response_page_length;
+
+    public $response_input_status;
+    public $response_input_errors;
+    public $response_input_results;
+
+    public  $response_input_traking          = [];
+    public  $response_input_traking_status   = '';
+    public  $response_input_traking_percent  = 0;
+    public  $response_input_traking_message  = '';
+    private $resonpse_last_time_check        = 0; 
+
+    private $__codeConn  = null;
+    private $__secretKey = null;
+    private $__keyCypher = 'sha256';
+    
+    protected $__group_multicategory                    = false;
+    protected $__get_same_parent_variants_modifications = false;
+    protected $__get_parent_modifications               = false;
+    protected $__get_parents_category_tree              = false;
 
     private $__error_list = [
         '1'  => 'Validation error',
@@ -156,7 +172,7 @@ class SalesLayer_Conn
             $URL .= '&parents_category_tree=1';
         }
 
-        return $URL.'&version=7';
+        return $URL;
     }
 
     /**
@@ -253,9 +269,9 @@ class SalesLayer_Conn
      *
      * @param bool $group
      */
-    public function set_group_multicategory($group)
+    public function set_group_multicategory($enable)
     {
-        $this->__group_multicategory = $group;
+        $this->__group_multicategory = $enable;
     }
 
     /**
@@ -299,7 +315,7 @@ class SalesLayer_Conn
     }
 
     /**
-     * CURL Request to retrieve information.
+     * Get info from API
      *
      * @param timestamp $last_update         last updated database
      * @param array     $params              extra parameters for the API
@@ -311,6 +327,7 @@ class SalesLayer_Conn
     public function get_info($last_update = null, $params = null, $connector_type = null, $add_reference_files = false)
     {
         if ($this->hasConnector()) {
+
             if ($this->time_unlimit) {
                 set_time_limit(0);
             }
@@ -320,12 +337,345 @@ class SalesLayer_Conn
             if ($this->user_abort) {
                 ignore_user_abort(true);
             }
+            if (!is_array($params)) {
+                $params = [];
+            }
+            if ($add_reference_files) {
+                
+                $params['get_file_refereneces'] = 1;
+            }
+            if ($this->output_pagination and !isset($params['pagination'])) {
+                
+                $params['pagination'] = $this->output_pagination;
+            }
 
-            $ch = curl_init($this->__get_api_url($last_update));
+            $stat = $this->call($this->__get_api_url($last_update), $params);
 
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1800); // 30 minutes * 60 seconds
+            if ($stat) {
+                    
+                if (   $connector_type
+                    && isset($this->data_returned['schema']['connector_type'])
+                    &&       $this->data_returned['schema']['connector_type'] != $connector_type) {
+
+                    $this->__trigger_error('Wrong connector type: '.$this->data_returned['schema']['connector_type'], 105);
+
+                } else {
+
+                    $this->__clean_error();
+
+                    return $this->__parsing_json_returned();
+                }
+            } 
+        }
+        
+        return false;
+    }
+
+    /**
+     * Set pagination data
+     */
+     public function set_pagination($pagination)
+     {
+         $this->output_pagination = $pagination;
+     }
+
+     /**
+     * Get pagination 
+     */
+     public function get_pagination()
+     {
+         return $this->output_pagination;
+     }
+
+    /**
+     * Check for data paging
+     *
+     * @return bool
+     */
+    public function have_next_page()
+    {
+        return ($this->response_next_page ? true : false);
+    }
+
+    /**
+     * Get info from API
+     *
+     * @return array info or false (if error)
+     */
+    public function get_next_page_info()
+    {
+        if ($this->response_next_page) {
+
+            $stat = $this->call($this->response_next_page);
+
+            if ($stat) {
+               
+                $this->__clean_error();
+
+                return $this->__parsing_json_returned();
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get page count
+     *
+     * @return integer
+     */
+    public function get_next_page_count()
+    {
+        return ($this->response_next_count ? $this->response_next_count : 0);
+    }
+
+    /**
+     * Get page length
+     *
+     * @return integer
+     */
+     public function get_next_page_length()
+     {
+         return ($this->response_next_length ? $this->response_next_length : 0);
+     }
+
+    /**
+     * Set info to API
+     *
+     * @param array $update_items items data to insert/update
+     * @param array $delete_items items data to delete
+     * @param bool  $compression  gzip compression transfer
+     *
+     * @return response to API
+     */
+    public function set_info($update_items = [], $delete_items = [], $compression = false, $force_directly = false)
+    {
+        $params = [];
+
+        if ($this->hasConnector()) {
+            
+            if (is_array($update_items) && count($update_items)) {
+                
+                $params['input_data'] = [];
+
+                foreach ($update_items as $table => &$items) {
+                    if (is_array($items) && count($items)) {
+                        $params['input_data'][$table] = $items;
+                    } else if (is_string($items) && preg_match('/^https?:\/\//i', $items)) {
+                        $params['input_data'][$table] = $items;
+                    }
+                }
+            }
+
+            if (is_array($delete_items) && count($delete_items)) {
+                
+                $params['delete_data'] = [];
+
+                foreach ($delete_items as $table => &$items) {
+                    if (is_array($items) && count($items)) {
+                        $params['delete_data'][$table] = $items;
+                    }
+                }
+            }
+
+            unset($update_items, $delete_items, $items);
+
+            if (count($params)) {
+
+                if ($force_directly) {
+                    $params['input_data_directly'] = 1;
+                }
+
+
+                if ($compression) {
+                    $params['compression'] = 1;
+                }
+
+                $stat = $this->call($this->__get_api_url(), $params);
+
+                if ($stat && is_array($this->data_returned)) {
+
+                    return $this->__parsing_json_returned();
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check input status
+     *
+     * @return integer (0 = ok, 1 = warnings, 2 = error)
+     */
+    public function get_input_status()
+    {
+        if ($this->response_input_status) {
+
+            return $this->response_input_status;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Check if the input has generated errors
+     *
+     * @return bool
+     */
+    public function have_input_errors()
+    {
+        return ($this->response_input_status == 2 ? true : false);
+    }
+
+    /**
+     * Check if the input has generated warnings
+     *
+     * @return bool
+     */
+    public function have_input_warnings()
+    {
+        return ($this->response_input_status == 1 ? true : false);
+    }
+
+    /**
+     * Get input errors
+     *
+     * @return array width errors
+     */
+    public function get_input_errors()
+    {
+        if ($this->response_input_status && is_array($this->response_input_errors) && count($this->response_input_errors)) {
+
+            return $this->response_input_errors;
+        }
+
+        return [];
+    }
+
+    /**
+     * Get input benchmarks
+     *
+     * @return array width these keys: 'items_affected', 'new_items', 'updated_items', 'deleted_items'
+     */
+    public function get_input_results()
+    {
+        return (is_array($this->response_input_results) ? $this->response_input_results : []);
+    }
+
+    /**
+     * Check for data paging
+     *
+     * @return bool
+     */
+    public function have_input_traking()
+    {
+        return ($this->response_input_traking ? true : false);
+    }
+ 
+    /**
+     * Update input tracking from API
+     *
+     * @return array info
+     */
+
+    public function check_input_traking()
+    {
+        if ($this->response_input_traking && time() > $this->resonpse_last_time_check) {
+
+            $stat = $this->call($this->response_input_traking);
+
+            $this->resonpse_last_time_check = time();
+
+            if ($stat) {
+            
+                $this->__clean_error();
+                $this->__parsing_json_returned();
+
+                if (!$this->response_input_traking_status) {
+
+                    $this->response_input_traking_status  = 'end';
+                    $this->response_input_traking_percent = 100;
+                    $this->response_input_traking_message = '';
+                }
+
+                return true;
+            }
+
+            $this->response_input_traking_status  = 'error';
+            $this->response_input_traking_percent = 0;
+            $this->response_input_traking_message = '';
+
+        } else if (   !$this->response_input_traking 
+                   &&  $this->response_input_traking_status != 'error' 
+                   && isset($this->data_returned['input_response'])
+                   &&       $this->data_returned['input_response']['result'] == 2) {
+
+            $this->response_input_traking_status  = 'error';
+            $this->response_input_traking_percent = 0;
+            $this->response_input_traking_message = '';
+        }
+
+        return false;
+    }
+
+    /**
+     * Get input tracking status from API
+     *
+     * @return array info
+     */
+    
+    public function get_input_traking_status()
+    {
+        $this->check_input_traking();
+
+        return $this->response_input_traking_status;
+    }
+
+    /**
+     * Get input traking percentage from API
+     *
+     * @return array info
+     */
+    
+     public function get_input_traking_percent()
+     {
+        $this->check_input_traking();
+ 
+        return $this->response_input_traking_percent;
+     }
+
+     /**
+     * Get input tracking percentage from API
+     *
+     * @return array info
+     */
+    
+     public function get_input_traking_message()
+     {
+        $this->check_input_traking();
+ 
+        return $this->response_input_traking_message;
+     }
+
+    /**
+     * CURL Request to retrieve information.
+     *
+     * @param string    $url                 API URL for call
+     * @param array     $params              extra parameters for the API
+     * @param array     $post                POST data
+     *
+     * @return array info or false (if error)
+     */
+     public function call ($url, $params = []) {
+
+        if ($url and preg_match('/^https?:\/\/'.preg_quote($this->url, '/').'/i', $url)) {
+
+            $ch = curl_init($url);
+
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->connection_timeout);
+
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
@@ -337,56 +687,36 @@ class SalesLayer_Conn
                 curl_setopt($ch, CURLOPT_CAINFO,  $this->SSL_CACert);
             }
 
-            if ($add_reference_files) {
-                if (!is_array($params)) {
-                    $params = [];
-                }
-                $params['get_file_refereneces'] = 1;
-            }
-
-            if (is_array($params)) {
-                curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+            if (is_array($params) and count($params)) {
 
                 if (isset($params['compression']) && $params['compression']) {
                     curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
                 }
+
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, (is_array($params) ? http_build_query($params) : $params)); unset($params);  
             }
 
             $response = curl_exec($ch);
 
-            if (false !== $response) {
-                $this->data_returned = json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
+            curl_close($ch);
 
-                curl_close($ch);
+            if (false !== $response) {
+
+                $this->data_returned = json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
 
                 if (false !== $this->data_returned && is_array($this->data_returned)) {
 
-                    unset($response);
-
-                    if ($connector_type
-                        && isset($this->data_returned['schema']['connector_type'])
-                        && $connector_type != $this->data_returned['schema']['connector_type']) {
-
-                        $this->__trigger_error('Wrong connector type: ' . $this->data_returned['schema']['connector_type'], 105);
-
-                    } else {
-
-                        $this->__clean_error();
-
-                        return $this->__parsing_json_returned();
-                    }
+                    return true;
 
                 } else {
-                    $this->__trigger_error('Void response or malformed: ' . $response, 101);
+                    $this->__trigger_error('Void response or malformed: '.$response, 101);
                 }
-
             } else {
-
-                $this->__trigger_error('Error connection: ' . curl_error($ch), 102);
-
-                curl_close($ch);
+                $this->__trigger_error('Error connection: '.curl_error($ch), 102);
             }
+        } else {
+            $this->__trigger_error('Incorrect URL call: '.$url, 100);
         }
 
         return false;
@@ -397,276 +727,257 @@ class SalesLayer_Conn
      *
      * @return string or null
      */
-    public function get_data_returned()
-    {
-        return $this->data_returned;
-    }
-
-    /**
-     * Parsing received data.
-     *
-     * @return bool
-     */
-    private function __parsing_json_returned()
-    {
-        if (null !== $this->data_returned) {
-
-            $this->response_api_version = $this->data_returned['version'];
-            $this->response_time        = $this->data_returned['time'];
+     public function get_data_returned()
+     {
+         return $this->data_returned;
+     }
+ 
+     /**
+      * Parsing received data.
+      *
+      * @return bool
+      */
+     private function __parsing_json_returned()
+     {
+         if (null !== $this->data_returned) {
+ 
+            if (isset($this->data_returned['version'])) {
+            
+                $this->response_api_version = $this->data_returned['version'];
+            }
+            if (isset($this->data_returned['time'])) {
+            
+                $this->response_time = $this->data_returned['time'];
+            }
+            if (isset($this->data_returned['action'])) {
+                
+                $this->response_action = $this->data_returned['action'];
+            }
 
             if (isset($this->data_returned['error']) && $this->data_returned['error']) {
-                if (isset($this->__error_list[$this->data_returned['error']])) {
-                    $message_error = $this->__error_list[$this->data_returned['error']];
-                } else {
-                    $message_error = 'API error';
-                }
 
-                $this->__trigger_error($message_error, $this->data_returned['error']);
+                 if (isset($this->__error_list[$this->data_returned['error']])) {
+                     $message_error = $this->__error_list[$this->data_returned['error']];
+                 } else {
+                     $message_error = 'API error';
+                 }
+ 
+                 $this->__trigger_error($message_error, $this->data_returned['error']);
+
             } else {
-                $this->response_action      = $this->data_returned['action'];
-                $this->response_tables_info =
-                $this->response_files_list  = [];
+                
+                $status = false;
 
-                if (      isset($this->data_returned['data_schema_info'])
-                    && is_array($this->data_returned['data_schema_info'])
-                    &&    count($this->data_returned['data_schema_info'])) {
+                if (isset($this->data_returned['data'])) {
 
-                    foreach ($this->data_returned['data_schema_info'] as $table => $info) {
+                    if (      isset($this->data_returned['data_schema_info'])
+                        && is_array($this->data_returned['data_schema_info'])
+                        &&    count($this->data_returned['data_schema_info'])) {
 
-                        foreach ($info as $field => $props) {
+                        $this->response_tables_info = [];
 
-                            $this->response_tables_info[$table]['fields'][$field] = [
-                                'type'             => (('ID' == $field or substr($field, 0, 3) == 'ID_') ? 'key' : $props['type']),
-                                'sanitized'        => (isset($props['sanitized']) ? $props['sanitized'] : (isset($props['basename']) ? $props['basename'] : $field)),
-                                'has_multilingual' => ((isset($props['language_code']) and $props['language_code']) ? 1 : 0),
-                            ];
-
-                            if (isset($props['language_code']) && $props['language_code']) {
-                                $this->response_tables_info[$table]['fields'][$field]['language_code'] = $props['language_code'];
-                                $this->response_tables_info[$table]['fields'][$field]['basename']      = $props['basename'];
-                            }
-
-                            if (isset($props['title']) && $props['title']) {
-                                $this->response_tables_info[$table]['fields'][$field]['title'] = $props['title'];
-                            } elseif (isset($props['titles']) && $props['titles']) {
-                                $this->response_tables_info[$table]['fields'][$field]['titles'] = $props['titles'];
-                            } else {
-                                $this->response_tables_info[$table]['fields'][$field]['title'] = $field;
-                            }
-                            
-                            if (isset($props['tag_translations']) && $props['tag_translations']) {
-                                $this->response_tables_info[$table]['fields'][$field]['tag_translations'] = $props['tag_translations'];
-                            } 
-
-                            if (isset($props['table_key'])) {
-                                $this->response_tables_info[$table]['fields'][$field]['title'] = $props['table_key'];
-                            }
-
-                            if (isset($props['sizes']) && $props['sizes']) {
-                                $this->response_tables_info[$table]['fields'][$field]['image_sizes'] = $props['sizes'];
-                            }
-                        }
-                    }
-                }
-
-                $this->response_tables_data        =
-                $this->response_table_modified_ids =
-                $this->response_table_deleted_ids  = [];
-
-                if (isset($this->data_returned['data_schema'])) {
-
-                    foreach ($this->data_returned['data_schema'] as $table => $info) {
-
-                        foreach ($info as $ord => $fname) {
-
-                            if (is_string($fname)) {
-
-                                if (substr($fname, 0, 3) == 'ID_' and 'ID_PARENT' != $fname) {
-
-                                    $this->response_tables_info[$table]['table_joins'][$fname] = preg_replace('/^ID_/', '', $fname);
+                        foreach ($this->data_returned['data_schema_info'] as $table => $info) {
+    
+                            foreach ($info as $field => $props) {
+    
+                                $this->response_tables_info[$table]['fields'][$field] = [
+                                    'type'             => (('ID' == $field or substr($field, 0, 3) == 'ID_') ? 'key' : $props['type']),
+                                    'sanitized'        => (isset($props['sanitized']) ? $props['sanitized'] : (isset($props['basename']) ? $props['basename'] : $field)),
+                                    'has_multilingual' => ((isset($props['language_code']) and $props['language_code']) ? 1 : 0),
+                                ];
+    
+                                if (isset($props['language_code']) && $props['language_code']) {
+                                    $this->response_tables_info[$table]['fields'][$field]['language_code'] = $props['language_code'];
+                                    $this->response_tables_info[$table]['fields'][$field]['basename']      = $props['basename'];
+                                }
+                                if (isset($props['title']) && $props['title']) {
+                                    $this->response_tables_info[$table]['fields'][$field]['title'] = $props['title'];
+                                } elseif (isset($props['titles']) && $props['titles']) {
+                                    $this->response_tables_info[$table]['fields'][$field]['titles'] = $props['titles'];
+                                } else {
+                                    $this->response_tables_info[$table]['fields'][$field]['title'] = $field;
+                                }
+                                if (isset($props['tag_translations']) && $props['tag_translations']) {
+                                    $this->response_tables_info[$table]['fields'][$field]['tag_translations'] = $props['tag_translations'];
+                                } 
+                                if (isset($props['table_key'])) {
+                                    $this->response_tables_info[$table]['fields'][$field]['title'] = $props['table_key'];
+                                }
+                                if (isset($props['sizes']) && $props['sizes']) {
+                                    $this->response_tables_info[$table]['fields'][$field]['image_sizes'] = $props['sizes'];
+                                }
+                                if (isset($props['origin']) && $props['origin']) {
+                                    $this->response_tables_info[$table]['fields'][$field]['origin'] = $props['origin'];
                                 }
                             }
                         }
+                    }
 
-                        $this->response_tables_data[$table]                    = ['modified' => [], 'deleted' => []];
-                        $this->response_tables_info[$table]['count_registers'] =
+                    if (isset($this->data_returned['data_schema'])) {
+    
+                        $this->response_tables_schema = $this->data_returned['data_schema'];
+        
+                        foreach ($this->data_returned['data_schema'] as $table => $info) {
+    
+                            foreach ($info as $ord => $fname) {
+    
+                                if (is_string($fname)) {
+    
+                                    if (substr($fname, 0, 3) == 'ID_' and 'ID_PARENT' != $fname) {
+    
+                                        $this->response_tables_info[$table]['table_joins'][$fname] = preg_replace('/^ID_/', '', $fname);
+                                    }
+                                }
+                            }
 
-                            (is_array($this->data_returned['data'][$table]) ? count($this->data_returned['data'][$table]) : 0);
+                            $this->response_tables_info[$table]['count_registers'] = (isset($this->data_returned['data'][$table]) ? count($this->data_returned['data'][$table]) : 0);
+                            $this->response_tables_info[$table]['count_modified']  =
+                            $this->response_tables_info[$table]['count_deleted']   = 0;
+                        }
+                    }
 
-                        $this->response_tables_info[$table]['count_modified'] =
-                        $this->response_tables_info[$table]['count_deleted']  = 0;
-                        $this->response_table_deleted_ids[$table]             = [];
+                    $this->response_tables_data        =
+                    $this->response_table_modified_ids =
+                    $this->response_table_deleted_ids  =
+                    $this->response_files_list         = [];
 
-                        if ($this->response_tables_info[$table]['count_registers']) {
+                    if ($this->data_returned['data']) {
 
-                            foreach ($this->data_returned['data'][$table] as &$fields) {
+                        $tables = array_keys($this->response_tables_info);
 
-                                if ('D' == $fields[0]) {
+                        foreach ($tables as $table) {
 
-                                    $this->response_table_deleted_ids[$table][]      =
-                                    $this->response_tables_data[$table]['deleted'][] = $fields[1];
-                                    $this->response_tables_info[$table]['count_deleted'] ++;
+                            $this->response_tables_data[$table]       = ['modified' => [], 'count_modified' => [], 'deleted' => [], 'count_deleted' => 0];
+                            $this->response_table_deleted_ids[$table] = [];
 
-                                } else {
-                                    $data                                        = [];
-                                    $this->response_table_modified_ids[$table][] = $data['ID'] = $fields[1];
 
-                                    foreach ($this->data_returned['data_schema'][$table] as $ord => $field) {
+                            if (isset($this->data_returned['data'][$table]) && is_array($this->data_returned['data'])) {
 
-                                        $fname = (!is_array($field)) ? $field : key($field);
+                                foreach ($this->data_returned['data'][$table] as &$fields) {
 
-                                        if (!in_array($fname, ['STATUS', 'ID'])) {
+                                    if (count($fields)) {
 
-                                            if ('REF' == $fname or substr($fname, 0, 3) == 'ID_') {
+                                        if ('D' == $fields[0]) {
 
-                                                $data[$fname] = $fields[$ord];
+                                            $this->response_table_deleted_ids[$table][]      =
+                                            $this->response_tables_data[$table]['deleted'][] = $fields[1];
+                                            $this->response_tables_data[$table]['count_deleted'] ++;
+                                            $this->response_tables_info[$table]['count_deleted'] ++;
 
-                                            } else if (       isset($fields[$ord])
-                                                       and is_array($fields[$ord])
-                                                       and    isset($this->data_returned['data_schema'][$table][$ord][$fname])
-                                                       and is_array($this->data_returned['data_schema'][$table][$ord][$fname])) {
+                                        } else {
 
-                                                $data['data'][$fname] = [];
+                                            $data                                        = [ 'data' => [] ];
+                                            $this->response_table_modified_ids[$table][] = $data['ID'] = $fields[1];
 
-                                                if (isset($fields[$ord][0]) and 'U' != $fields[$ord][0]) {
+                                            foreach ($this->response_tables_schema[$table] as $ord => $field) {
 
-                                                    foreach ($fields[$ord] as $fsub) {
+                                                $fname = (!is_array($field)) ? $field : key($field);
 
-                                                        if (is_array($fsub)) {
-                                                            foreach ($fsub as $k => $a) {
-                                                                if ($k > 1) {
-                                                                    $ext = $this->data_returned['data_schema'][$table][$ord][$fname][intval($k)];
-                                                                    if (is_array($ext)) { $ext = $ext['field']; }
-                                                                    $data['data'][$fname][$fsub[1]][$ext]      =
-                                                                    $this->response_files_list['list_files'][] = $a;
+                                                if (!in_array($fname, ['STATUS', 'ID'])) {
+
+                                                    if ('REF' == $fname or substr($fname, 0, 3) == 'ID_') {
+
+                                                        $data[$fname] = (isset($fields[$ord]) ? $fields[$ord] : null);
+
+                                                    } else if (    isset($fields[$ord])
+                                                            and is_array($fields[$ord])
+                                                            and    isset($this->response_tables_schema[$table][$ord][$fname])
+                                                            and is_array($this->response_tables_schema[$table][$ord][$fname])) {
+
+                                                        $data['data'][$fname] = [];
+
+                                                        if (isset($fields[$ord][0]) and 'U' != $fields[$ord][0]) {
+
+                                                            foreach ($fields[$ord] as $fsub) {
+
+                                                                if (is_array($fsub)) {
+                                                                    foreach ($fsub as $k => $a) {
+                                                                        if ($k > 1) {
+                                                                            $ext = $this->response_tables_schema[$table][$ord][$fname][intval($k)];
+                                                                            if (is_array($ext)) { $ext = $ext['field']; }
+                                                                            $data['data'][$fname][$fsub[1]][$ext] =
+                                                                            $this->response_files_list[]          = $a;
+                                                                        }
+                                                                    }
                                                                 }
                                                             }
                                                         }
+
+                                                    } else {
+                                                        $data['data'][$fname] = (isset($fields[$ord]) ? $fields[$ord] : '');
                                                     }
                                                 }
-
-                                            } else {
-                                                $data['data'][$fname] = (isset($fields[$ord]) ? $fields[$ord] : '');
                                             }
+
+                                            $this->response_tables_data[$table]['modified'][] = $data;
+                                            $this->response_tables_data[$table]['count_modified'] ++;
+                                            $this->response_tables_info[$table]['count_modified'] ++;
                                         }
                                     }
-
-                                    $this->response_tables_data[$table]['modified'][] = $data;
-                                    $this->response_tables_info[$table]['count_modified']++;
                                 }
+                                unset($fields);
                             }
-                            unset($fields);
                         }
                     }
-                }
-
-                if (isset($this->data_returned['waiting'])) {
-                    $this->response_waiting_files = $this->data_returned['waiting'];
-                }
-
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Set info to API.
-     *
-     * @param array $update_items items data to insert/update
-     * @param array $delete_items items data to delete
-     * @param bool  $compression  gzip compression transfer
-     *
-     * @return response to API
-     */
-    public function set_info($update_items = array(), $delete_items = array(), $compression = false, $force_directly = false)
-    {
-        $data = array();
-
-        if ($this->hasConnector()) {
-            
-            if (is_array($update_items) and count($update_items)) {
-                $data['input_data'] = array();
-
-                foreach ($update_items as $table => &$items) {
-                    if (is_array($items) and count($items)) {
-                        $data['input_data'][$table] = $items;
-                    }
-                }
-            }
-
-            if (is_array($delete_items) and count($delete_items)) {
-                $data['delete_data'] = array();
-
-                foreach ($delete_items as $table => &$items) {
-                    if (is_array($items) and count($items)) {
-                        $data['delete_data'][$table] = $items;
-                    }
-                }
-            }
-
-            unset($update_items, $delete_items, $items);
-
-            if (count($data)) {
-
-                if ($force_directly) {
-                    $data['input_data_directly'] = 1;
-                }
-
-                $ch = curl_init($this->__get_api_url());
-
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     
-                if ($this->SSL && $this->SSL_Cert) {
-                    curl_setopt($ch, CURLOPT_PORT,    443);
-                    curl_setopt($ch, CURLOPT_SSLCERT, $this->SSL_Cert);
-                    curl_setopt($ch, CURLOPT_SSLKEY,  $this->SSL_Key);
-                    curl_setopt($ch, CURLOPT_CAINFO,  $this->SSL_CACert);
-                }
+                    if (isset($this->data_returned['waiting'])) {
+                        $this->response_waiting_files = $this->data_returned['waiting'];
+                    }
+    
+                    if (isset($this->data_returned['next_page']) && $this->data_returned['next_page']) {
 
-              //curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data)); unset($data);
-
-                if ($compression) {
-                    curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
-                }
-
-                $response = curl_exec($ch);
-
-                if (false !== $response) {
-
-                    $this->data_returned = @json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
-
-                    if (isset($this->data_returned['error'])) {
+                        $this->response_next_page   = $this->data_returned['next_page'];
+                        $this->response_page_count  = $this->data_returned['page_count'];
+                        $this->response_page_length = $this->data_returned['page_length'];
                         
-                        $this->__trigger_error('API error', $this->data_returned['error']);
-                    
-                    } else if (is_array($this->data_returned)) {
-
-                        $this->__parsing_json_returned();
-                        
-                        return $this->data_returned['input_response'];
-
                     } else {
 
-                        $this->__trigger_error('Void response or malformed: ' . $response, 101);
+                        $this->response_next_page   = '';
+                        $this->response_page_count  =
+                        $this->response_page_length = 0;
                     }
 
-                } else {
-
-                    $this->__trigger_error('Error connection: ' . curl_error($ch), 102);
+                    $status =  true;
                 }
 
-                curl_close($ch);
+                if (isset($this->data_returned['input_response'])) {
+
+                    if (   isset($this->data_returned['input_response']['status_traking'])
+                        &&       $this->data_returned['input_response']['status_traking']) {
+
+                        $this->response_input_traking = $this->data_returned['input_response']['status_traking'];
+                    }
+
+                    if ($this->data_returned['input_response']['result']) {
+
+                        $this->response_input_status  = $this->data_returned['input_response']['result'];
+                        $this->response_input_errors  = (isset($this->data_returned['input_response']['error']) ? $this->data_returned['input_response']['error']  : '');
+                        $this->response_input_results = [];
+
+                        foreach (['items_affected', 'new_items', 'updated_items', 'deleted_items'] as $key) {
+
+                            $this->response_input_results[$key] = (isset($this->data_returned['input_response'][$key]) ? $this->data_returned['input_response'][$key] : 0);
+                        }
+                    }
+
+                    $status = true;
+                } 
+                
+                if (isset($this->data_returned['input_percent_completion'])) {
+
+                    $this->response_input_traking_status  = $this->data_returned['input_status'];
+                    $this->response_input_traking_percent = $this->data_returned['input_percent_completion'];
+                    $this->response_input_traking_message = $this->data_returned['input_action_message'];
+
+                    $status = true;
+                }
+
+                return $status;
             }
         }
-
+ 
         return false;
-    }
+     }
 
     /**
      * Set the error code and message.
