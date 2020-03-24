@@ -9,11 +9,10 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2020-03-10
+ * @modified 2020-03-24
  *
  * @version 1.31
  */
- 
 class SalesLayer_Conn 
 {
 
@@ -151,7 +150,7 @@ class SalesLayer_Conn
             $get = '';
         }
 
-        $URL = 'http' . (($this->SSL) ? 's' : '') . '://' . $this->url . '?code=' . urlencode($this->__codeConn) . $get;
+        $URL = 'http' . (($this->SSL) ? 's' : '') . '://' . $this->url . (strpos($this->url, '?') !== false ? '&' : '?').'code=' . urlencode($this->__codeConn) . $get;
 
         if ($last_update) {
             $URL .= '&last_update=' . (!is_numeric($last_update) ? strtotime($last_update) : $last_update);
@@ -669,7 +668,7 @@ class SalesLayer_Conn
      */
      public function call ($url, $params = []) {
 
-        if ($url and preg_match('/^https?:\/\/'.preg_quote($this->url, '/').'/i', $url)) {
+        if ($url and preg_match('/^https?:\/\/'.preg_quote(preg_replace('/^([^\/?]+[\/?]).*$/', '\\1', $this->url), '/').'/i', $url)) {
 
             $ch = curl_init($url);
 

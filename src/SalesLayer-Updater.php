@@ -9,7 +9,7 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2020-03-10
+ * @modified 2020-03-24
  * @version 1.23
  *
  */
@@ -2417,13 +2417,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $this->get_database_tables();
 
+            $errors    = false;
             $db_table  = $this->__verify_table_name($table);
             $sly_table = $this->table_prefix.$db_table;
 
             foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
 
                 $SQL = "delete from `$multi_db_table` where `___modified`<'{$this->database_init_date}'".
-                       (count($this->get_connectors_list()) > 1 ? " and fin_in_set('".$this->database_config['conn_id']."', `__conn_id__`)" : '').';';
+                       (count($this->get_connectors_list()) > 1 ? " and find_in_set('".$this->database_config['conn_id']."', `__conn_id__`)" : '').';';
 
                 if (!$this->DB->execute($this->SQL_list[] = $SQL) && $multi_db_table == $sly_table) {
 
