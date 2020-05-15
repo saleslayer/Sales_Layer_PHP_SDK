@@ -496,7 +496,9 @@ class SalesLayer_Conn
 
                 if ($stat && is_array($this->data_returned)) {
 
-                    return $this->__parsing_json_returned();
+                    $stat = $this->__parsing_json_returned();
+
+                    return (floatval($this->connect_API_version) > 1.17 ? $stat : $this->data_returned['input_response']);
                 }
             }
         }
@@ -949,7 +951,7 @@ class SalesLayer_Conn
                         $this->response_input_traking = $this->data_returned['input_response']['status_traking'];
                     }
 
-                    if ($this->data_returned['input_response']['result']) {
+                    if (isset($this->data_returned['input_response'])) {
 
                         $this->response_input_status  = $this->data_returned['input_response']['result'];
                         $this->response_input_errors  = (isset($this->data_returned['input_response']['error']) ? $this->data_returned['input_response']['error']  : '');
