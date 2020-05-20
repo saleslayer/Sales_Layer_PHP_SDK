@@ -9,7 +9,7 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2020-03-25
+ * @modified 2020-05-20
  *
  * @version 1.31
  */
@@ -850,7 +850,7 @@ class SalesLayer_Conn
 
                         foreach ($tables as $table) {
 
-                            $this->response_tables_data[$table]       = ['modified' => [], 'count_modified' => [], 'deleted' => [], 'count_deleted' => 0];
+                            $this->response_tables_data[$table]       = ['modified' => [], 'count_modified' => 0, 'deleted' => [], 'count_deleted' => 0];
                             $this->response_table_deleted_ids[$table] = [];
 
 
@@ -865,7 +865,6 @@ class SalesLayer_Conn
                                             $this->response_table_deleted_ids[$table][]      =
                                             $this->response_tables_data[$table]['deleted'][] = $fields[1];
                                             $this->response_tables_data[$table]['count_deleted'] ++;
-                                            $this->response_tables_info[$table]['count_deleted'] ++;
 
                                         } else {
 
@@ -914,7 +913,6 @@ class SalesLayer_Conn
 
                                             $this->response_tables_data[$table]['modified'][] = $data;
                                             $this->response_tables_data[$table]['count_modified'] ++;
-                                            $this->response_tables_info[$table]['count_modified'] ++;
                                         }
                                     }
                                 }
