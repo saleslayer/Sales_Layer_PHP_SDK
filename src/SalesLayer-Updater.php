@@ -34,6 +34,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     public  $table_row_format   = 'COMPACT';
     public  $max_column_chars   = 50;
     public  $max_table_columns  = 800;
+    public  $max_size_multikey  = 512;
 
     public  $list_connectors    = [];
 
@@ -64,7 +65,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         'file'      =>'text',
         'datetime'  =>'datetime',
         'list'      =>'text',
-        'key'       =>'bigint'
+        'key'       =>'bigint',
+        'multi-key' =>'bigint'
 
     ];
 
@@ -306,7 +308,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         '`comp_id` int(11) NOT NULL, '.
                         '`last_update` int, '.
                         '`default_language` varchar(6) NOT NULL, '.
-                        '`languages` varchar(512) NOT NULL, '.
+                        '`languages` varchar('.$this->max_size_multikey.') NOT NULL, '.
                         '`conn_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
                         '`data_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
                         '`conn_extra` mediumtext CHARACTER SET {collation}, '.
@@ -420,7 +422,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             if ($field) {
                   
-                                $is_key = ($struc['type'] == 'key' or substr($field, 0, 3) == 'ID_');
+                                $is_key = (in_array($struc['type'], ['key', 'multi-key']) or substr($field, 0, 3) == 'ID_');
 
                                 if (!$is_key) {
                                     
@@ -1019,7 +1021,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             foreach ($data_schema as $field =>& $info) {
 
-                if ($field !== 'ID_PARENT' and ($info['type'] == 'key' or substr($field, 0, 3) == 'ID_')) {
+                if ($field !== 'ID_PARENT' and (in_array($info['type'], ['key', 'multi-key']) or substr($field, 0, 3) == 'ID_')) {
 
                     $fields[$field] = $this->__get_db_table_from_key($field);
                 }
@@ -1353,9 +1355,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         foreach ($data as $v) { 
 
-                            $type = preg_replace('/^([^\s\(]+).*$/', '\\1', $v['Type']);
-                        
-                            $this->database_fields[$db_table][$v['Field']] = ($type == 'tinyint' ? 'bool' : $type);
+                            $this->database_fields[$db_table][$v['Field']] = $this->__get_field_type_for_verify($v['Type']); 
                             $this->table_columns  [$test_db_table][]       = $v['Field'];
                             
                             if (!isset($this->column_tables[$db_table][$v['Field']])) {
@@ -1369,6 +1369,18 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         }
 
         return $this->database_fields[$db_table];
+    }
+
+    /**
+     * Clean database field type
+     *
+     */
+
+    private function __get_field_type_for_verify ($type) {
+
+        $type = preg_replace('/^([^\s\(]+).*$/', '\\1', $type);
+                        
+        return ($type == 'tinyint' ? 'bool' : $type);
     }
 
     /**
@@ -1642,9 +1654,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         $db_table = $this->__verify_table_name($table);
         $field_id = $this->__get_field_key ($db_table);
 
-        return '`__conn_id__` varchar(512) NOT NULL, `'.$field_id.'` int unsigned not null'.($primary ? ' auto_increment primary key' 
-                                                                                                        : 
-                                                                                                        ', UNIQUE KEY `'.$field_id.'` (`'.$field_id.'`)');
+        return '`__conn_id__` varchar('.$this->max_size_multikey.') NOT NULL, `'.$field_id.'` bigint unsigned not null'.
+               ($primary ? ' auto_increment primary key' : ', UNIQUE KEY `'.$field_id.'` (`'.$field_id.'`)');
     }
 
     /**
@@ -1707,7 +1718,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             }
 
             if ($ok) {
-
+                
                 $fields    = [];
                 $key_field = $this->__get_field_key($db_table);
 
@@ -1724,8 +1735,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     if ($db_field != $key_field && is_array($info) && !empty($info)) {
 
                         $type = $this->__get_database_type_schema($info['type']);
+           
+                        if ($this->__group_multicategory == true && $info['type'] == 'multi-key') {
+
+                            $type = 'varchar('.$this->max_size_multikey.')';
+                        }
+
                         $mode = (($mode_insert or !isset($this->database_fields[$sly_table][$db_field])) ?
-                                                'ADD' : ($this->database_fields[$sly_table][$db_field] != $type ? "CHANGE `$db_field` " : ''));
+                                                'ADD' : ($this->database_fields[$sly_table][$db_field] != $this->__get_field_type_for_verify($type) ? "CHANGE `$db_field` " : ''));
 
                         if ($mode) {
 
@@ -1749,7 +1766,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 $this->table_columns  [$this_db_table][] = $db_field;
                                 $this->rel_multitables[$sly_table]    [] = $this_db_table;
 
-                                $this->__create_table($this_db_table, '`'.$key_field.'` int unsigned not null', false);
+                                $this->__create_table($this_db_table, '`'.$key_field.'` bigint unsigned not null', false);
                             }
 
                             if (!isset($this->database_fields[$sly_table][$db_field]) || preg_match('/^CHANGE\s+/i', $mode)) {
@@ -1757,11 +1774,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 if (!isset($fields[$this_db_table])) $fields[$this_db_table] = '';
 
                                 $fields[$this_db_table] .= ($fields[$this_db_table] ? ', ' : '')."$mode `$db_field` $type ".($type == 'bigint' ? ' UNSIGNED' : '').
-                                                           $this->database_field_types_charset[$type];
+                                                           (isset($this->database_field_types_charset[$type]) ? $this->database_field_types_charset[$type] : '');
                             }
                         }
                     }
                 }
+                unset($info);
 
                 if (!empty($fields)) {
 

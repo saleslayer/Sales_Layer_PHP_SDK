@@ -742,7 +742,8 @@ class SalesLayer_Conn
       */
      private function __parsing_json_returned()
      {
-         if (null !== $this->data_returned) {
+
+        if (null !== $this->data_returned) {
  
             if (isset($this->data_returned['version'])) {
             
@@ -784,7 +785,7 @@ class SalesLayer_Conn
                             foreach ($info as $field => $props) {
     
                                 $this->response_tables_info[$table]['fields'][$field] = [
-                                    'type'             => (('ID' == $field or substr($field, 0, 3) == 'ID_') ? 'key' : $props['type']),
+                                    'type'             => (('ID' == $field or substr($field, 0, 3) == 'ID_') ? ($props['type'] == 'list' ? 'multi-key' : 'key') : $props['type']),
                                     'sanitized'        => (isset($props['sanitized']) ? $props['sanitized'] : (isset($props['basename']) ? $props['basename'] : $field)),
                                     'has_multilingual' => ((isset($props['language_code']) and $props['language_code']) ? 1 : 0),
                                 ];
