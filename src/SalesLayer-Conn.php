@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2020-06-16
+ * @modified 2020-06-22
  *
- * @version 1.32
+ * @version 1.33
  */
 class SalesLayer_Conn 
 {
 
-    public $version_class = '1.32';
+    public $version_class = '1.33';
 
     public $url = 'api.saleslayer.com';
 
@@ -56,10 +56,10 @@ class SalesLayer_Conn
     public $response_input_errors;
     public $response_input_results;
 
-    public  $response_input_traking          = [];
-    public  $response_input_traking_status   = '';
-    public  $response_input_traking_percent  = 0;
-    public  $response_input_traking_message  = '';
+    public  $response_input_tracking          = [];
+    public  $response_input_tracking_status   = '';
+    public  $response_input_tracking_percent  = 0;
+    public  $response_input_tracking_message  = '';
     private $resonpse_last_time_check        = 0; 
 
     private $__codeConn  = null;
@@ -425,9 +425,9 @@ class SalesLayer_Conn
      *
      * @return integer
      */
-    public function get_next_page_count()
+    public function get_page_count()
     {
-        return ($this->response_next_count ? $this->response_next_count : 0);
+        return ($this->response_page_count ? $this->response_page_count : 0);
     }
 
     /**
@@ -435,9 +435,9 @@ class SalesLayer_Conn
      *
      * @return integer
      */
-     public function get_next_page_length()
+     public function get_page_length()
      {
-         return ($this->response_next_length ? $this->response_next_length : 0);
+         return ($this->response_page_length ? $this->response_page_length : 0);
      }
 
     /**
@@ -567,13 +567,13 @@ class SalesLayer_Conn
     }
 
     /**
-     * Check for data paging
+     * Check if have input tracking info
      *
      * @return bool
      */
-    public function have_input_traking()
+    public function have_input_tracking()
     {
-        return ($this->response_input_traking ? true : false);
+        return ($this->response_input_tracking ? true : false);
     }
  
     /**
@@ -582,11 +582,11 @@ class SalesLayer_Conn
      * @return array info
      */
 
-    public function check_input_traking()
+    public function check_input_tracking()
     {
-        if ($this->response_input_traking && time() > $this->resonpse_last_time_check) {
+        if ($this->response_input_tracking && time() > $this->resonpse_last_time_check) {
 
-            $stat = $this->call($this->response_input_traking);
+            $stat = $this->call($this->response_input_tracking);
 
             $this->resonpse_last_time_check = time();
 
@@ -595,28 +595,28 @@ class SalesLayer_Conn
                 $this->__clean_error();
                 $this->__parsing_json_returned();
 
-                if (!$this->response_input_traking_status) {
+                if (!$this->response_input_tracking_status) {
 
-                    $this->response_input_traking_status  = 'end';
-                    $this->response_input_traking_percent = 100;
-                    $this->response_input_traking_message = '';
+                    $this->response_input_tracking_status  = 'end';
+                    $this->response_input_tracking_percent = 100;
+                    $this->response_input_tracking_message = '';
                 }
 
                 return true;
             }
 
-            $this->response_input_traking_status  = 'error';
-            $this->response_input_traking_percent = 0;
-            $this->response_input_traking_message = '';
+            $this->response_input_tracking_status  = 'error';
+            $this->response_input_tracking_percent = 0;
+            $this->response_input_tracking_message = '';
 
-        } else if (   !$this->response_input_traking 
-                   &&  $this->response_input_traking_status != 'error' 
+        } else if (   !$this->response_input_tracking 
+                   &&  $this->response_input_tracking_status != 'error' 
                    && isset($this->data_returned['input_response'])
                    &&       $this->data_returned['input_response']['result'] == 2) {
 
-            $this->response_input_traking_status  = 'error';
-            $this->response_input_traking_percent = 0;
-            $this->response_input_traking_message = '';
+            $this->response_input_tracking_status  = 'error';
+            $this->response_input_tracking_percent = 0;
+            $this->response_input_tracking_message = '';
         }
 
         return false;
@@ -628,24 +628,24 @@ class SalesLayer_Conn
      * @return array info
      */
     
-    public function get_input_traking_status()
+    public function get_input_tracking_status()
     {
-        $this->check_input_traking();
+        $this->check_input_tracking();
 
-        return $this->response_input_traking_status;
+        return $this->response_input_tracking_status;
     }
 
     /**
-     * Get input traking percentage from API
+     * Get input tracking percentage from API
      *
      * @return array info
      */
     
-     public function get_input_traking_percent()
+     public function get_input_tracking_percent()
      {
-        $this->check_input_traking();
+        $this->check_input_tracking();
  
-        return $this->response_input_traking_percent;
+        return $this->response_input_tracking_percent;
      }
 
      /**
@@ -654,11 +654,11 @@ class SalesLayer_Conn
      * @return array info
      */
     
-     public function get_input_traking_message()
+     public function get_input_tracking_message()
      {
-        $this->check_input_traking();
+        $this->check_input_tracking();
  
-        return $this->response_input_traking_message;
+        return $this->response_input_tracking_message;
      }
 
     /**
@@ -944,10 +944,10 @@ class SalesLayer_Conn
 
                 if (isset($this->data_returned['input_response'])) {
 
-                    if (   isset($this->data_returned['input_response']['status_traking'])
-                        &&       $this->data_returned['input_response']['status_traking']) {
+                    if (   isset($this->data_returned['input_response']['status_tracking'])
+                        &&       $this->data_returned['input_response']['status_tracking']) {
 
-                        $this->response_input_traking = $this->data_returned['input_response']['status_traking'];
+                        $this->response_input_tracking = $this->data_returned['input_response']['status_tracking'];
                     }
 
                     if (isset($this->data_returned['input_response'])) {
@@ -967,9 +967,9 @@ class SalesLayer_Conn
                 
                 if (isset($this->data_returned['input_percent_completion'])) {
 
-                    $this->response_input_traking_status  = $this->data_returned['input_status'];
-                    $this->response_input_traking_percent = $this->data_returned['input_percent_completion'];
-                    $this->response_input_traking_message = $this->data_returned['input_action_message'];
+                    $this->response_input_tracking_status  = $this->data_returned['input_status'];
+                    $this->response_input_tracking_percent = $this->data_returned['input_percent_completion'];
+                    $this->response_input_tracking_message = $this->data_returned['input_action_message'];
 
                     $status = true;
                 }
