@@ -901,6 +901,76 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     }
 
     /**
+     * Get table list
+     *
+     * @param $lang string language
+     * @return array
+     *
+     */
+
+    public function get_tables ($lang = '') {
+
+        $this->__test_config_initialized();
+
+        $def_lang = $this->get_default_language();
+
+        if (   isset($this->database_config['conn_schema']['language_table_names'])) {
+
+            $tables = [];
+
+            foreach ($this->database_config['conn_schema']['language_table_names'] as $table => $titles) {
+
+                $tables[$table] = (($lang and isset($titles[$lang]) and $titles[$lang]) ? $titles[$lang] : $titles[$def_lang]);
+            }
+
+            return $tables;
+        }
+
+        return $this->get_tables_sanitized();
+    }
+
+    /**
+     * Get table list with sanitized names
+     *
+     * @return array
+     *
+     */
+
+     public function get_tables_sanitized () {
+
+        $this->__test_config_initialized();
+
+        if ( isset($this->database_config['conn_schema']['sanitized_table_names'])) {
+
+            return $this->database_config['conn_schema']['sanitized_table_names'];
+        }
+
+        return [];
+    }
+
+    /**
+     * Get internal table name
+     *
+     * @param $table table alias or internal
+     * @return array
+     *
+     */
+
+     public function get_internal_table_name ($table, $lang = '') {
+
+        $tables = $this->get_tables($lang);
+
+        if (!empty($tables)) {
+
+            if (isset($tables[$table])) return $table;
+
+            if (($key_table = array_search($table, $tables)) !== false) return $key_table;
+        }
+
+        return $table;
+    }
+
+    /**
      * Get table internal name
      *
      * @param $table string database table
@@ -910,7 +980,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
      public function get_database_table_name ($table) {
 
-        $this->__test_config_initialized();
+        $table = $this->get_internal_table_name($table);
 
         return (isset($this->database_config['data_schema'][$table]['name']) ? $this->database_config['data_schema'][$table]['name'] : $table);
     }
@@ -925,12 +995,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
      public function get_database_table_db_name ($table, $add_prefix = true) {
 
-        $this->__test_config_initialized();
+        $table = $this->get_internal_table_name($table);
 
         if (isset($this->database_config['data_schema'][$table])) {
 
-            return ($add_prefix ? $this->SDK->table_prefix : '').$this->__clean_db_name(isset($this->database_config['data_schema'][$table]['sanitized'] ) ? 
-                                                                                              $this->database_config['data_schema'][$table]['sanitized'] : $table);
+            return ($add_prefix ? $this->table_prefix : '').$this->__clean_db_name(isset($this->database_config['data_schema'][$table]['sanitized'] ) ? 
+                                                                                         $this->database_config['data_schema'][$table]['sanitized'] : $table);
         }
         
         return false;
@@ -1091,6 +1161,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      */
 
     public function get_database_table_joins ($table) {
+
+        $this->__test_config_initialized();
 
         $list = [];
 
@@ -2149,10 +2221,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         
         $this->__test_config_initialized();
         
-        if(!is_array($values)) {
+        if (!is_array($values)) {
             
-            $values = preg_split('/\s*,\s*/', $values, -1, PREG_SPLIT_NO_EMPTY);
+            $values           = preg_split('/\s*,\s*/', $values, -1, PREG_SPLIT_NO_EMPTY);
             $return_as_string = true;
+
         } else {
             
             $return_as_string = false;
@@ -2169,7 +2242,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     if (isset($field_info['tag_translations'])) {
 
                         $default_language = $this->get_default_language();
-                        $result = [];
+                        $result           = [];
 
                         foreach($values as $k => $v) {
                          
@@ -2177,30 +2250,25 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                 $result[$k] = $field_info['tag_translations'][$language][$v];
 
-                            } else if (isset($field_info['tag_translations'][$default_language][$v])) {    
+                            } else if ( isset($field_info['tag_translations'][$default_language][$v])) {    
 
                                 $result[$k] = $field_info['tag_translations'][$default_language][$v];
                                 
                             } else {
                                 
-                                $result[$k] = $v;
-                                
-                            }
-                            
+                                $result[$k] = $v;  
+                            }   
                         }
                         
                         if($return_as_string){
                             
-                            return implode(",", $result);
+                            return implode(',', $result);
                             
                         } else {
                             
-                            return $result;
-                            
+                            return $result;   
                         }
-                        
                     }
-
                 }
             }
         }
