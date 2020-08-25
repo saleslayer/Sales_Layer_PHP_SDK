@@ -702,8 +702,6 @@ class SalesLayer_Conn
 
             $response = curl_exec($ch);
 
-            curl_close($ch);
-
             if (false !== $response) {
 
                 $this->data_returned = json_decode(preg_replace('/^\xef\xbb\xbf/', '', $response), 1);
@@ -718,6 +716,9 @@ class SalesLayer_Conn
             } else {
                 $this->__trigger_error('Error connection: '.curl_error($ch), 102);
             }
+            
+            curl_close($ch);
+
         } else {
             $this->__trigger_error('Incorrect URL call: '.$url, 100);
         }
