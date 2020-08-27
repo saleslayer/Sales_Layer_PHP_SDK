@@ -56,11 +56,11 @@ class SalesLayer_Conn
     public $response_input_errors;
     public $response_input_results;
 
-    public  $response_input_tracking          = [];
+    public  $response_input_tracking          = '';
     public  $response_input_tracking_status   = '';
     public  $response_input_tracking_percent  = 0;
     public  $response_input_tracking_message  = '';
-    private $resonpse_last_time_check        = 0; 
+    private $resonpse_last_time_check         = 0; 
 
     private $__codeConn  = null;
     private $__secretKey = null;
@@ -460,9 +460,7 @@ class SalesLayer_Conn
                 $params['input_data'] = [];
 
                 foreach ($update_items as $table => &$items) {
-                    if (is_array($items) && !empty($items)) {
-                        $params['input_data'][$table] = $items;
-                    } else if (is_string($items) && preg_match('/^https?:\/\//i', $items)) {
+                    if (!empty($items)) {
                         $params['input_data'][$table] = $items;
                     }
                 }
@@ -973,6 +971,13 @@ class SalesLayer_Conn
                     $this->response_input_tracking_message = $this->data_returned['input_action_message'];
 
                     $status = true;
+                }
+
+                if (empty($this->response_input_tracking) and empty($this->response_input_tracking_status)) {
+
+                    $this->response_input_tracking_status  = 'end';
+                    $this->response_input_tracking_percent = 100;
+                    $this->response_input_tracking_message = '';
                 }
 
                 return $status;
