@@ -446,10 +446,12 @@ class SalesLayer_Conn
      * @param array $update_items items data to insert/update
      * @param array $delete_items items data to delete
      * @param bool  $compression  gzip compression transfer
+     * @param bool  $force_directly import directly (as of API 1.18)
+     * @param array $extra_params add special extra parameters
      *
      * @return response to API
      */
-    public function set_info($update_items = [], $delete_items = [], $compression = false, $force_directly = false)
+    public function set_info($update_items = [], $delete_items = [], $compression = false, $force_directly = false, $extra_params = [])
     {
         $params = [];
 
@@ -460,10 +462,9 @@ class SalesLayer_Conn
                 $params['input_data'] = [];
 
                 foreach ($update_items as $table => &$items) {
-                    if (!empty($items)) {
-                        $params['input_data'][$table] = $items;
-                    }
+                    if (!empty($items)) { $params['input_data'][$table] = $items; }
                 }
+                unset($items);
             }
 
             if (is_array($delete_items) && !empty($delete_items)) {
@@ -471,13 +472,20 @@ class SalesLayer_Conn
                 $params['delete_data'] = [];
 
                 foreach ($delete_items as $table => &$items) {
-                    if (is_array($items) && !empty($items)) {
-                        $params['delete_data'][$table] = $items;
-                    }
+                    if (is_array($items) && !empty($items)) { $params['delete_data'][$table] = $items; }
                 }
+                unset($items);
             }
 
-            unset($update_items, $delete_items, $items);
+            if (is_array($extra_params) && !empty($extra_params)) {
+          
+                foreach ($extra_params as $key => &$data) {
+                    if (!empty($data)) { $params[$key] = $data; }
+                }
+                unset($data);
+            }
+            
+            unset($update_items, $delete_items, $extra_params);
 
             if (!empty($params)) {
 
