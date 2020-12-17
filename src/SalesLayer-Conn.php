@@ -68,7 +68,6 @@ class SalesLayer_Conn
     
     protected $__group_multicategory                    = false;
     protected $__get_same_parent_variants_modifications = false;
-    protected $__get_parent_modifications               = false;
     protected $__get_parents_category_tree              = false;
 
     private $__error_list = [
@@ -163,9 +162,6 @@ class SalesLayer_Conn
         }
         if (false !== $this->__get_same_parent_variants_modifications) {
             $URL .= '&same_parent_variants=1';
-        }
-        if (false !== $this->__get_parent_modifications) {
-            $URL .= '&first_parent_level=1';
         }
         if (false !== $this->__get_parents_category_tree) {
             $URL .= '&parents_category_tree=1';
@@ -281,16 +277,6 @@ class SalesLayer_Conn
     public function set_same_parent_variants_modifications($enable)
     {
         $this->__get_same_parent_variants_modifications = $enable;
-    }
-
-    /**
-     * Set value for getting modifications/deletions of first level parents.
-     *
-     * @param bool $enable
-     */
-    public function set_first_level_parent_modifications($enable)
-    {
-        $this->__get_parent_modifications = $enable;
     }
 
     /**
@@ -861,8 +847,7 @@ class SalesLayer_Conn
                             $this->response_tables_data[$table]       = ['modified' => [], 'count_modified' => 0, 'deleted' => [], 'count_deleted' => 0];
                             $this->response_table_deleted_ids[$table] = [];
 
-
-                            if (isset($this->data_returned['data'][$table]) && is_array($this->data_returned['data'])) {
+                            if (isset($this->data_returned['data'][$table]) && is_array($this->data_returned['data'][$table])) {
 
                                 foreach ($this->data_returned['data'][$table] as &$fields) {
 
