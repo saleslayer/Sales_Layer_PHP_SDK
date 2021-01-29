@@ -9,54 +9,52 @@
 
 <h4 align="center">This is the official PHP SDK for Sales Layer's PIM Platform.</h4>
 
-## Sales Layer SDK for PHP
+## Description
 
 This SDK contains all the logic and connection methods to Sales Layer’s customizable API. And you can find more detailed documentation at our [website](https://support.saleslayer.com/category/api-sdk-examples "Title").
 
+## Requirements
+
+PHP 5.6 and later
 
 ## Examples
 
 ```php
 <?php
-	if (!class_exists('SalesLayer_Conn')) require_once 'SalesLayer-Conn.php';
 
-    $connector_id = 'CN000H0000C000';
-	$secret_key   = 'f035324ba8f98a6f33c05ee1ce36ef29';
+if (!class_exists('SalesLayer_Conn')) require_once 'SalesLayer-Conn.php';
 
-	// Instantiate the class
-	$SLconn = new SalesLayer_Conn($connector_id, $secret_key);
+$connector_id = 'CN000H0000C000';
+$secret_key   = 'f035324ba8f98a6f33c05ee1ce36ef29';
 
-	$SLconn->set_API_version('1.17');
+// Instantiate the class
+$SLconn = new SalesLayer_Conn($connector_id, $secret_key);
 
-	$SLconn->get_info();
+$SLconn->set_API_version('1.17');
 
-	if ($SLconn->has_response_error()) {
+$SLconn->get_info();
 
-		echo "<h4>Error:</h4>\n\n Code: ".$SLconn->get_response_error().
-			 "<br>\nMessage: ".           $SLconn->get_response_error_message();
+if ($SLconn->has_response_error()) {
 
-	} else {
+	echo "<h4>Error:</h4>\n\n Code: ".$SLconn->get_response_error(). "<br>\nMessage: " . $SLconn->get_response_error_message();
 
-		echo "<h4>Response OK</h4>\n".
-			 "<p>".
-			 "API version: <b>".            $SLconn->get_response_api_version()            ."</b><br />\n".
-			 "Action: <b>".                 $SLconn->get_response_action()                 ."</b><br />\n".
-			 "Time: <b>".                   $SLconn->get_response_time()                   ."</b> (GMT 0)<br />\n".
-             "Default language: <b>".       $SLconn->get_response_default_language()       ."</b><br /><br />\n".
+} else {
 
-			 "Information:<br />".  print_r($SLconn->get_response_table_information(), 1)  ."<br /><br />\n".
-
-			 "Modified ID's:<br />".print_r($SLconn->get_response_table_modified_ids(), 1) ."<br /><br />\n".
-
-			 "Deleted ID's:<br />". print_r($SLconn->get_response_table_deleted_ids(), 1)  ."<br /><br />\n".
-
-			 "Data:<br />".         print_r($SLconn->get_response_table_data(), 1)         ."<br /><br />\n".
-
-             "List files:<br />".   print_r($SLconn->get_response_list_modified_files(), 1)."<br /><br />\n".
-
-			 "</p>\n";
-
+	echo "<h4>Response OK</h4>\n".
+		 "<p>".
+		 "API version: <b>". $SLconn->get_response_api_version() ."</b><br />\n".
+		 "Action: <b>". $SLconn->get_response_action() ."</b><br />\n".
+		 "Time: <b>". $SLconn->get_response_time() ."</b> (GMT 0)<br />\n".
+		 "Default language: <b>". $SLconn->get_response_default_language() ."</b><br /><br />\n".
+		 "Information:<br />". print_r($SLconn->get_response_table_information(), 1) ."<br /><br />\n".
+		 "Modified ID's:<br />" .print_r($SLconn->get_response_table_modified_ids(), 1) ."<br /><br />\n".
+		 "Deleted ID's:<br />". print_r($SLconn->get_response_table_deleted_ids(), 1)  ."<br /><br />\n".
+		 "Data:<br />". print_r($SLconn->get_response_table_data(), 1) ."<br /><br />\n".
+		 "List files:<br />". print_r($SLconn->get_response_list_modified_files(), 1)."<br /><br />\n".
+		 "</p>\n";
+		 
 	}
+	
 ?>
 ```
 
