@@ -60,7 +60,7 @@ if ($SLconn->has_response_error()) {
 
 ## Documentation & Important notes
 
-> :warning: **A Sales Layer accont might be needed to access the documentation**
+> :warning: **A Sales Layer account might be needed to access the documentation**
 
 ##### PHP SDK Examples https://support.saleslayer.com/api-sdk-examples/example-1-simple-export
 
