@@ -1,12 +1,23 @@
-Sales Layer SDK for PHP
-=======================
+<h1 align="center">
+  <a href="https://support.saleslayer.com">
+    <img src="https://saleslayer.com/assets/images/logo.svg" alt="Sales Layer for Developers" width="230"></a>
+  </a>
+  <br><br>
+  Sales Layer's PHP SDK
+  <br>
+</h1>
 
-This SDK contains all the logic and connection methods to Sales Layer’s customizable API. And you can find more detailed documentation at our [website](http://support.saleslayer.com/connections-api/pim-php-sdk/ "Title").
+<h4 align="center">This is the official PHP SDK for Sales Layer's PIM Platform.</h4>
+
+## Sales Layer SDK for PHP
+
+This SDK contains all the logic and connection methods to Sales Layer’s customizable API. And you can find more detailed documentation at our [website](https://support.saleslayer.com/category/api-sdk-examples "Title").
 
 
-Samples
-=======
+## Examples
 
+```php
+<?php
 	if (!class_exists('SalesLayer_Conn')) require_once 'SalesLayer-Conn.php';
 
     $connector_id = 'CN000H0000C000';
@@ -46,3 +57,14 @@ Samples
 			 "</p>\n";
 
 	}
+?>
+```
+
+## Documentation & Important notes
+
+> :warning: **A Sales Layer accont might be needed to access the documentation**
+
+##### PHP SDK Examples https://support.saleslayer.com/api-sdk-examples/example-1-simple-export
+
+##### API Documentation https://support.saleslayer.com/api/introduction
+
