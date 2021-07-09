@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> nightly
 # Start by giving a name to your workflow
 name: Analyze branch
 
@@ -20,11 +24,19 @@ jobs:
     steps:
       # Use an existing action, you can look in the market place to find what you need and how to use it, to setup the sonar scanner
       - name: Setup sonar scanner
+<<<<<<< HEAD
         uses: warchant/setup-sonar-scanner@v1
 
       # Another existing action, this one to checkout the repository
       - name: 'Checkout repository on branch: ${{ github.REF }}'
         uses: actions/checkout@v2
+=======
+        uses: warchant/setup-sonar-scanner@master
+
+      # Another existing action, this one to checkout the repository
+      - name: 'Checkout repository on branch: ${{ github.REF }}'
+        uses: actions/checkout@master
+>>>>>>> nightly
         with:
           ref: ${{ github.REF }}
           fetch-depth: 0

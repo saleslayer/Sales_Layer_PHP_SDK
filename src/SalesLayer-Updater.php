@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2020-03-10
- * @version 1.23
+ * @modified 2021-07-05
+ * @version 1.27
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        require_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version    = '1.23';
+    public  $updater_version    = '1.24';
 
     public  $database           = null;
     public  $username           = null;
@@ -34,6 +34,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     public  $table_row_format   = 'COMPACT';
     public  $max_column_chars   = 50;
     public  $max_table_columns  = 800;
+    public  $max_size_multikey  = 512;
 
     public  $list_connectors    = [];
 
@@ -64,7 +65,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         'file'      =>'text',
         'datetime'  =>'datetime',
         'list'      =>'text',
-        'key'       =>'bigint'
+        'key'       =>'bigint',
+        'multi-key' =>'bigint'
 
     ];
 
@@ -78,6 +80,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         'int'       =>'',
         'bigint'    =>'',
     ];
+
+    private $debbug_file_name;
 
     /**
      * Constructor - if you're not using the class statically
@@ -98,6 +102,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         parent::__construct();
 
+        $this->set_path_log_debug();
+        
         if ($database != null) {
 
             $this->connect($database, $username, $password, $hostname, $codeConn, $secretKey, $SSL, $url);
@@ -177,11 +183,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             return false;
         }
 
-        $this->DB->execute($this->SQL_list[] = "SET NAMES '{$this->charset}';");
+        $this->DB->execute($this->__add_to_debug("SET NAMES '{$this->charset}';"));
 
         $dt = new DateTime();
 
-        $this->DB->execute($this->SQL_list[] = "SET time_zone='".$dt->format('P')."';");
+        $this->DB->execute($this->__add_to_debug("SET time_zone='".$dt->format('P')."';"));
 
         return true;
     }
@@ -302,7 +308,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         '`comp_id` int(11) NOT NULL, '.
                         '`last_update` int, '.
                         '`default_language` varchar(6) NOT NULL, '.
-                        '`languages` varchar(512) NOT NULL, '.
+                        '`languages` varchar('.$this->max_size_multikey.') NOT NULL, '.
                         '`conn_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
                         '`data_schema` mediumtext CHARACTER SET {collation} NOT NULL, '.
                         '`conn_extra` mediumtext CHARACTER SET {collation}, '.
@@ -310,7 +316,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         'PRIMARY KEY (`cnf_id`)'.
                         ') ENGINE='.$this->table_engine.' ROW_FORMAT='.$this->table_row_format.' DEFAULT CHARSET={collation} AUTO_INCREMENT=1');
 
-                if ($this->DB->execute($this->SQL_list[] = $SQL)) {
+                if ($this->DB->execute($this->__add_to_debug($SQL))) {
 
                     $this->database_tables[] = $config_table;
 
@@ -345,7 +351,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if (!in_array($this->table_prefix.$this->table_config, $this->database_tables)) { $this->__initialize_config(); }
 
-            if (!count($this->database_config)) { $this->__get_config($code, $refresh); }
+            if (empty($this->database_config)) { $this->__get_config($code, $refresh); }
         }
     }
 
@@ -388,7 +394,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 $conn_schema['hash'] = ($hash ? $hash : md5(json_encode($info)));
                 $data_schema         = [];
 
-                if (is_array($info) and count($info)) {
+                if (is_array($info) and !empty($info)) {
 
                     if (!$hash) $hash = md5(json_encode($info));
 
@@ -416,7 +422,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             if ($field) {
                   
-                                $is_key = ($struc['type'] == 'key' or substr($field, 0, 3) == 'ID_');
+                                $is_key = (in_array($struc['type'], ['key', 'multi-key']) or substr($field, 0, 3) == 'ID_');
 
                                 if (!$is_key) {
                                     
@@ -478,23 +484,23 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             }
 
             $SQL  = "$mode `".                  $this->table_prefix.$this->table_config."` set ".
-                    "`conn_code` = '".          $code                                                         ."', ".
-                    "`conn_secret` = '".        addslashes($this->get_identification_secret())                ."', ".
-                    "`comp_id` = '".            addslashes($this->get_response_company_ID()                  )."', ".
+                    "`conn_code` = '".          $code."', ".
+                    "`conn_secret` = '".        addslashes($this->get_identification_secret())."', ".
+                    "`comp_id` = '".            addslashes($this->get_response_company_ID())."', ".
                     ($update_last_upd ?
-                       "`last_update` = '"     .addslashes($this->get_response_time(false)).                   "', " : '').
+                       "`last_update` = '"     .addslashes($this->get_response_time(false))."', " : '').
                     ($refresh ?
-                       "`default_language` = '".addslashes($this->get_response_default_language()            )."', ".
-                       "`languages` = '".       addslashes(implode(',', $this->get_response_languages_used()))."', ".
-                       "`conn_schema` = '".     addslashes(json_encode($conn_schema)                         )."', ".
-                       "`data_schema` = '".     addslashes(json_encode($data_schema)                         )."', "
+                       "`default_language` = '".addslashes($this->get_response_default_language())."', ".
+                       "`languages` = '".       addslashes(implode(',', (array)$this->get_response_languages_used()))."', ".
+                       "`conn_schema` = '".     addslashes(json_encode($conn_schema))."', ".
+                       "`data_schema` = '".     addslashes(json_encode($data_schema))."', "
                        :
                        ''
                     ).
-                    "`updater_version` = '".    addslashes($this->get_response_api_version()                 )."' ".
+                    "`updater_version` = '".    addslashes($this->get_response_api_version() )."' ".
                     ($mode == 'update' ? "where `conn_code`='$code' limit 1" : '');
 
-            if ($this->DB->execute($this->SQL_list[] = $SQL)) {
+            if ($this->DB->execute($this->__add_to_debug($SQL))) {
 
                 if ($mode == 'insert') { $this->get_connectors_list($code); }
 
@@ -533,7 +539,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $SQL = "update `".$this->table_prefix.$this->table_config."` set last_update='".addslashes($this->get_response_time(false))."' where conn_code='$code' limit 1";
 
-            if ($this->DB->execute($this->SQL_list[] = $SQL)) return true;
+            if ($this->DB->execute($this->__add_to_debug($SQL))) return true;
 
             if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
         }
@@ -586,15 +592,15 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $this->list_connectors['names'] = [];
 
-            $list = $this->DB->execute($this->SQL_list[] = 'select `conn_code` from `'.$this->table_prefix.$this->table_config.'`');
+            $list = $this->DB->execute($this->__add_to_debug('select `conn_code` from `'.$this->table_prefix.$this->table_config.'`'));
 
-            if (count($list)) {
+            if (!empty($list)) {
 
                 foreach ($list as $v) { $this->list_connectors['names'][] = $v['conn_code']; }
             }
         }
 
-        if ($code && (!count($this->list_connectors['names']) || !in_array($code, $this->list_connectors['names']))) {
+        if ($code && (empty($this->list_connectors['names']) || !in_array($code, $this->list_connectors['names']))) {
 
             $this->list_connectors['names'][] = $code;
             $this->get_connectors_info($code);
@@ -616,14 +622,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if ($refresh_info) { unset($this->list_connectors['data']); }
 
-        if (!isset($this->list_connectors['data']) || !count($this->list_connectors['data']) || ($code && !isset($this->list_connectors['data'][$code]))) {
+        if (!isset($this->list_connectors['data']) || empty($this->list_connectors['data']) || ($code && !isset($this->list_connectors['data'][$code]))) {
 
             $SQL  = 'select * from `'.$this->table_prefix.$this->table_config.'`'.
                     (isset($this->list_connectors['data'][$code]) ? ' where `conn_code`=\''.addslashes($code).'\' limit 1' : '');
 
-            $list = $this->DB->execute($this->SQL_list[] = $SQL);
+            $list = $this->DB->execute($this->__add_to_debug($SQL));
 
-            if (count($list)) {
+            if (!empty($list)) {
 
                 if (!$code || !isset($this->list_connectors['data'])) { $this->list_connectors['data'] = []; }
 
@@ -662,7 +668,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $SQL = 'select `conn_extra` from `'.$this->table_prefix.$this->table_config.'` where `conn_code`=\''.addslashes($code).'\' limit 1';
 
-        if ($res = $this->DB->execute($this->SQL_list[] = $SQL)) {
+        if ($res = $this->DB->execute($this->__add_to_debug($SQL))) {
 
             return json_decode($res[0]['conn_extra'], 1);
         }
@@ -695,7 +701,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $SQL = 'update `'.$this->table_prefix.$this->table_config.'` set `conn_extra`=\''.json_encode($data).
                    '\' where `conn_code`=\''.addslashes($code).'\' limit 1';
 
-            if ($this->DB->execute($this->SQL_list[] = $SQL)) { return true; }
+            if ($this->DB->execute($this->__add_to_debug($SQL))) { return true; }
 
             if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
         }
@@ -720,7 +726,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $SQL = 'update '.$this->table_prefix.$this->table_config.' set last_update=\''.addslashes($last_update).'\' where conn_code=\''.addslashes($code).'\' limit 1';
 
-        if ($this->DB->execute($this->SQL_list[] = $SQL)) { return true; }
+        if ($this->DB->execute($this->__add_to_debug($SQL))) { return true; }
 
         if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
@@ -742,7 +748,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if ( $code) {
 
-                if ($refresh || !count($this->database_config) || $this->database_config['conn_code'] != $code) {
+                if ($refresh || empty($this->database_config) || $this->database_config['conn_code'] != $code) {
 
                     if (!$refresh and isset($this->list_connectors['data'][$code])) {
 
@@ -750,7 +756,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     } else {
 
-                        $data = $this->DB->execute( $this->SQL_list[] = 'select * from `'.$this->table_prefix.$this->table_config."` where `conn_code`='$code' limit 1" );
+                        $data = $this->DB->execute($this->__add_to_debug('select * from `'.$this->table_prefix.$this->table_config."` where `conn_code`='$code' limit 1"));
 
                         if (isset($data[0])) {
 
@@ -849,7 +855,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $SQL = 'SHOW VARIABLES LIKE "%version%"';
 
-            if (!($res = $this->DB->execute($this->SQL_list[] = $SQL))) {
+            if (!($res = $this->DB->execute($this->__add_to_debug($SQL)))) {
 
                 if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
@@ -859,7 +865,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $ver = array_shift($list);
 
-                if (count($list)) { $ver .= '.'; foreach ($list as $l) { $ver .= sprintf('%02s', $l); }}
+                if (!empty($list)) { $ver .= '.'; foreach ($list as $l) { $ver .= sprintf('%02s', $l); }}
 
                 $this->mysql_version = floatval($ver);
             }
@@ -895,6 +901,76 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     }
 
     /**
+     * Get table list
+     *
+     * @param $lang string language
+     * @return array
+     *
+     */
+
+    public function get_tables ($lang = '') {
+
+        $this->__test_config_initialized();
+
+        $def_lang = $this->get_default_language();
+
+        if (   isset($this->database_config['conn_schema']['language_table_names'])) {
+
+            $tables = [];
+
+            foreach ($this->database_config['conn_schema']['language_table_names'] as $table => $titles) {
+
+                $tables[$table] = (($lang and isset($titles[$lang]) and $titles[$lang]) ? $titles[$lang] : $titles[$def_lang]);
+            }
+
+            return $tables;
+        }
+
+        return $this->get_tables_sanitized();
+    }
+
+    /**
+     * Get table list with sanitized names
+     *
+     * @return array
+     *
+     */
+
+     public function get_tables_sanitized () {
+
+        $this->__test_config_initialized();
+
+        if ( isset($this->database_config['conn_schema']['sanitized_table_names'])) {
+
+            return $this->database_config['conn_schema']['sanitized_table_names'];
+        }
+
+        return [];
+    }
+
+    /**
+     * Get internal table name
+     *
+     * @param $table table alias or internal
+     * @return array
+     *
+     */
+
+     public function get_internal_table_name ($table, $lang = '') {
+
+        $tables = $this->get_tables($lang);
+
+        if (!empty($tables)) {
+
+            if (isset($tables[$table])) return $table;
+
+            if (($key_table = array_search($table, $tables)) !== false) return $key_table;
+        }
+
+        return $table;
+    }
+
+    /**
      * Get table internal name
      *
      * @param $table string database table
@@ -904,7 +980,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
      public function get_database_table_name ($table) {
 
-        $this->__test_config_initialized();
+        $table = $this->get_internal_table_name($table);
 
         return (isset($this->database_config['data_schema'][$table]['name']) ? $this->database_config['data_schema'][$table]['name'] : $table);
     }
@@ -919,16 +995,37 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
      public function get_database_table_db_name ($table, $add_prefix = true) {
 
-        $this->__test_config_initialized();
+        $table = $this->get_internal_table_name($table);
 
         if (isset($this->database_config['data_schema'][$table])) {
 
-            return ($add_prefix ? $this->SDK->table_prefix : '').$this->__clean_db_name(isset($this->database_config['data_schema'][$table]['sanitized'] ) ? 
-                                                                                              $this->database_config['data_schema'][$table]['sanitized'] : $table);
+            return ($add_prefix ? $this->table_prefix : '').$this->__clean_db_name(isset($this->database_config['data_schema'][$table]['sanitized'] ) ? 
+                                                                                         $this->database_config['data_schema'][$table]['sanitized'] : $table);
         }
         
         return false;
     }
+
+    /**
+     * Test if table exists
+     *
+     * @param $table string database table
+     * @return boolean
+     *
+     */
+
+     public function table_schema_exists ($table) {
+
+        $this->__test_config_initialized();
+
+        if ($table and isset($this->database_config['data_schema'][$table]) 
+                   and isset($this->database_config['data_schema'][$table]['fields'])) {
+
+            return true;
+        }
+
+        return false;
+     }
 
     /**
      * Get table schema
@@ -952,7 +1049,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 foreach ($this->database_config['data_schema'][$table]['fields'] as $field =>& $info) {
 
-                    if ($info['name'] != 'REF' or preg_match('/^ID_?/', $info['name'])) $fields[$field] = $info;
+                    $fields[$field] = $info;
                 }
 
             } else {
@@ -992,9 +1089,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
      public function get_table_fields_db ($table) {
 
-        $data_schema = $this->get_database_table_schema($table, true);
+        $data_schema = $this->get_database_table_schema($table);
 
-        return ((is_array($data_schema) && count($data_schema)) ? array_keys($data_schema) : []);
+        return ((is_array($data_schema) && !empty($data_schema)) ? array_keys($data_schema) : []);
 
     }
 
@@ -1009,13 +1106,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      public function get_table_fields_db_rels ($table) {
 
         $fields      = [];
-        $data_schema = $this->get_database_table_schema($table, true);
+        $data_schema = $this->get_database_table_schema($table);
 
-        if (is_array($data_schema) && count($data_schema)) {
+        if (is_array($data_schema) && !empty($data_schema)) {
 
             foreach ($data_schema as $field =>& $info) {
 
-                if ($field !== 'ID_PARENT' and ($info['type'] == 'key' or substr($field, 0, 3) == 'ID_')) {
+                if ($field !== 'ID_PARENT' and (in_array($info['type'], ['key', 'multi-key']) or substr($field, 0, 3) == 'ID_')) {
 
                     $fields[$field] = $this->__get_db_table_from_key($field);
                 }
@@ -1060,9 +1157,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if ($name && $table) {
 
-            $data_schema = $this->get_database_table_schema($table, true);
+            $data_schema = $this->get_database_table_schema($table);
 
-            if (is_array($data_schema) && count($data_schema)) {    
+            if (is_array($data_schema) && !empty($data_schema)) {    
 
                 foreach ($data_schema as $field => $info) {
                     
@@ -1078,6 +1175,35 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     }
 
     /**
+     * Get database table joins from all tables
+     *
+     * @return array
+     *
+     */
+
+     public function get_all_table_joins () {
+
+        $this->__test_config_initialized();
+
+        $list = [];
+
+        foreach ($this->database_config['data_schema'] as $table =>& $table_info) {
+
+            if (   isset($table_info['table_joins']) && !empty($table_info['table_joins'])) {
+
+                $list[$table] = [];
+
+                foreach ($table_info['table_joins'] as $field => $table_join) {
+    
+                    $list[$table][$table_join] = $field;
+                }
+            }
+        }
+
+        return $list;
+    }
+
+    /**
      * Get database table joins from table name
      *
      * @return array
@@ -1086,14 +1212,16 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function get_database_table_joins ($table) {
 
+        $this->__test_config_initialized();
+
         $list = [];
 
         if (   isset($this->database_config['data_schema'][$table]['table_joins'])) {
 
             foreach ($this->database_config['data_schema'][$table]['table_joins'] as $field => $table) {
 
-                $sly_table         = $this->table_prefix.$this->__verify_table_name($table);
-                $list [$sly_table] = $this->__get_db_key_from_field($field, $table);
+                      $sly_table  = $this->table_prefix.$this->__verify_table_name($table);
+                $list[$sly_table] = $this->__get_db_key_from_field($field, $table);
             }
         }
 
@@ -1192,7 +1320,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      */
 
-    public function update ($params = null, $connector_type = null, $force_refresh = false) {
+    public function update ($params = null, $connector_type = null, $force_refresh = false, $status_function = null) {
 
         if ($code = $this->get_identification_code()) {
 
@@ -1204,7 +1332,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $this->database_config['last_update'] = null;
             }
-     
+   
             if (!isset($this->test_update_stats['update']) || !$this->test_update_stats['update']) {
 
                 if ($this->update_pagination && !isset($params['pagination'])) {
@@ -1221,61 +1349,71 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 $this->test_update_stats = null;
             }
 
-            if (!$this->has_response_error()) {
+            if (!$this->response_error) {
 
                 $this->__update_config(false);
 
-                if ($force_refresh == true) { $this->delete_all(false); }
+                if (!$this->response_error) {
 
-                $this->get_database_tables();
+                    if ($force_refresh == true) { $this->delete_all(false); }
 
-                $tables     = array_keys($this->get_response_table_information());
-                $new_tables = [];
+                    $this->get_database_tables();
 
-                foreach ($tables as $table) {
-
-                    $db_table = $this->__verify_table_name($table);
-
-                    if (!in_array($this->table_prefix.$db_table, $this->database_tables)) {
-
-                        $this->create_database_table($table);
-
-                        $new_tables[] = $table;
-
-                    } else {
-
-                        $this->update_database_table($table);
-                    }
-                }
-
-                $this->database_init_date = '';
-          
-                do {
+                    $tables     = array_keys($this->get_response_table_information());
+                    $new_tables = [];
 
                     foreach ($tables as $table) {
 
-                        if (count($this->get_response_table_modified_ids($table)) || count($this->get_response_table_deleted_ids($table))) {
-                
-                            $this->update_database_table_data($table);
+                        $db_table = $this->__verify_table_name($table);
+
+                        if (!in_array($this->table_prefix.$db_table, $this->database_tables)) {
+
+                            $this->create_database_table($table);
+
+                            $new_tables[] = $table;
+
+                        } else {
+
+                            $this->update_database_table($table);
                         }
                     }
 
-                } while ($this->get_next_page_info());
+                    $this->database_init_date = '';
+            
+                    do {
 
-                if ($this->get_response_action() == 'refresh') {
+                        if (is_array($this->response_tables_data)) {
 
-                    foreach ($tables as $table) {
+                            $page_tables = array_keys($this->response_tables_data);
 
-                        if (!in_array($table, $new_tables)) {
+                            foreach ($page_tables as $table) {
 
-                            $this->clean_database_table_updated($table);
+                                if (!empty($this->get_response_table_modified_ids($table)) || !empty($this->get_response_table_deleted_ids($table))) {
+                        
+                                    $this->update_database_table_data($table);
+                                }
+                            }
+                        }
+                        
+                        if ($status_function) call_user_func_array($status_function, [ $this ]);
+
+                    } while ($this->get_next_page_info());
+
+                    if ($this->get_response_action() == 'refresh') {
+
+                        foreach ($tables as $table) {
+
+                            if (!in_array($table, $new_tables)) {
+
+                                $this->clean_database_table_updated($table);
+                            }
                         }
                     }
+
+                    $this->__refresh_last_update_config();
+
+                    return true;
                 }
-
-                $this->__refresh_last_update_config();
-
-                return true;
             }
 
         } else {
@@ -1299,11 +1437,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $this->database_tables = [];
 
-            $tables = $this->DB->execute($this->SQL_list[] = 'SHOW TABLES');
+            if (!$this->response_error) {
 
-            if (is_array($tables) && count($tables)) {
+                $tables = $this->DB->execute($this->__add_to_debug('SHOW TABLES'));
 
-                foreach ($tables as $v) { $this->database_tables[] = (is_array($v) ? reset($v) : $v); }
+                if (is_array($tables) && !empty($tables)) {
+
+                    foreach ($tables as $v) { $this->database_tables[] = (is_array($v) ? reset($v) : $v); }
+                }
             }
         }
 
@@ -1319,7 +1460,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function get_database_table_fields ($db_table, $refresh = false) {
 
-        if (!isset($this->database_fields[$db_table]) || !count($this->database_fields[$db_table]) || $refresh == true) {
+        if (!isset($this->database_fields[$db_table]) || empty($this->database_fields[$db_table]) || $refresh == true) {
 
             $this->database_fields[$db_table] =
             $this->rel_multitables[$db_table] =
@@ -1336,15 +1477,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     $this->rel_multitables   [$db_table][] = $test_db_table;    
                     $this->table_columns[$test_db_table]   = [];
                     
-                    $data = $this->DB->execute($this->SQL_list[] = 'SHOW COLUMNS FROM `'.$test_db_table.'`');
+                    $data = $this->DB->execute($this->__add_to_debug('SHOW COLUMNS FROM `'.$test_db_table.'`'));
 
-                    if (is_array($data) && count($data)) {
+                    if (is_array($data) && !empty($data)) {
 
                         foreach ($data as $v) { 
 
-                            $type = preg_replace('/^([^\s\(]+).*$/', '\\1', $v['Type']);
-                        
-                            $this->database_fields[$db_table][$v['Field']] = ($type == 'tinyint' ? 'bool' : $type);
+                            $this->database_fields[$db_table][$v['Field']] = $this->__get_field_type_for_verify($v['Type']); 
                             $this->table_columns  [$test_db_table][]       = $v['Field'];
                             
                             if (!isset($this->column_tables[$db_table][$v['Field']])) {
@@ -1358,6 +1497,18 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         }
 
         return $this->database_fields[$db_table];
+    }
+
+    /**
+     * Clean database field type
+     *
+     */
+
+    private function __get_field_type_for_verify ($type) {
+
+        $type = preg_replace('/^([^\s\(]+).*$/', '\\1', $type);
+                        
+        return ($type == 'tinyint' ? 'bool' : $type);
     }
 
     /**
@@ -1385,7 +1536,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 unset($this->database_fields[$db_table], $this->rel_multitables[$db_table]);
 
-                if (is_array($this->table_columns) and count($this->table_columns)) {
+                if (is_array($this->table_columns) and !empty($this->table_columns)) {
                 
                     $expr = $this->__get_table_match($db_table);
 
@@ -1508,7 +1659,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $schema_db_fields = $this->get_table_fields_db($table);
 
-                if (is_array($schema_db_fields) && count($schema_db_fields)) {
+                if (is_array($schema_db_fields) && !empty($schema_db_fields)) {
 
                     $fields = [];
 
@@ -1545,13 +1696,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         }
                     }
 
-                    if (count($fields)) {
+                    if (!empty($fields)) {
 
                         foreach ($fields as $multi_db_table => $string_fields) {
 
                             $SQL = $this->__fix_collation("ALTER TABLE `".$multi_db_table."` $string_fields;");
 
-                            $this->DB->execute($this->SQL_list[] = $SQL);
+                            $this->DB->execute($this->__add_to_debug($SQL));
                         }
 
                         $this->clean_table_cache($sly_table);
@@ -1584,7 +1735,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         if (substr($field, 0, 3) == 'ID_' and $field != 'ID_PARENT') {
 
             $table_rel = preg_replace('/^ID_/u', '', $field);
-            $table_rel = $data_schema[$table_rel]['sanitized'];
+            $table_rel = ((    isset($data_schema[$table_rel]) 
+                           and isset($data_schema[$table_rel]['sanitized'])) ? $data_schema[$table_rel]['sanitized'] : preg_replace('/^ID_(.+)$/u', '\\1', $field));
 
         } else {
 
@@ -1631,9 +1783,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         $db_table = $this->__verify_table_name($table);
         $field_id = $this->__get_field_key ($db_table);
 
-        return '`__conn_id__` varchar(512) NOT NULL, `'.$field_id.'` int unsigned not null'.($primary ? ' auto_increment primary key' 
-                                                                                                        : 
-                                                                                                        ', UNIQUE KEY `'.$field_id.'` (`'.$field_id.'`)');
+        return '`__conn_id__` varchar('.$this->max_size_multikey.') NOT NULL, `'.$field_id.'` bigint unsigned not null'.
+               ($primary ? ' auto_increment primary key' : ', UNIQUE KEY `'.$field_id.'` (`'.$field_id.'`)');
     }
 
     /**
@@ -1647,12 +1798,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if ($db_table) {
 
-            $this->DB->execute($this->SQL_list[] = "DROP TABLE IF EXISTS `$db_table`");
+            $this->DB->execute($this->__add_to_debug("DROP TABLE IF EXISTS `$db_table`"));
 
             $SQL = $this->__fix_collation("CREATE TABLE `$db_table` ($string_fields) ENGINE=".$this->table_engine.' ROW_FORMAT='.$this->table_row_format.
                                           ' DEFAULT CHARSET={collation}'.($auto_increment ? ' AUTO_INCREMENT=1' : ''));
 
-            if ($this->DB->execute($this->SQL_list[] = $SQL)) {
+            if ($this->DB->execute($this->__add_to_debug($SQL))) {
                 
                 $db_table_base                           = preg_replace('/___[0-9]+$/', '', $db_table);
                 $this->database_tables[]                 = $db_table;
@@ -1678,7 +1829,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $schema = $this->get_database_table_schema($table);
 
-        if (is_array($schema) && count($schema)) {
+        if (is_array($schema) && !empty($schema)) {
 
             $ok        = true;
             $db_table  = $this->__verify_table_name($table);
@@ -1696,7 +1847,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             }
 
             if ($ok) {
-
+                
                 $fields    = [];
                 $key_field = $this->__get_field_key($db_table);
 
@@ -1710,11 +1861,17 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 foreach ($schema as $db_field =>& $info) {
 
-                    if ($db_field != $key_field && is_array($info) && count($info)) {
+                    if ($db_field != $key_field && is_array($info) && !empty($info)) {
 
                         $type = $this->__get_database_type_schema($info['type']);
+           
+                        if ($this->__group_multicategory == true && $info['type'] == 'multi-key') {
+
+                            $type = 'varchar('.$this->max_size_multikey.')';
+                        }
+
                         $mode = (($mode_insert or !isset($this->database_fields[$sly_table][$db_field])) ?
-                                                'ADD' : ($this->database_fields[$sly_table][$db_field] != $type ? "CHANGE `$db_field` " : ''));
+                                                'ADD' : ($this->database_fields[$sly_table][$db_field] != $this->__get_field_type_for_verify($type) ? "CHANGE `$db_field` " : ''));
 
                         if ($mode) {
 
@@ -1738,7 +1895,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 $this->table_columns  [$this_db_table][] = $db_field;
                                 $this->rel_multitables[$sly_table]    [] = $this_db_table;
 
-                                $this->__create_table($this_db_table, '`'.$key_field.'` int unsigned not null', false);
+                                $this->__create_table($this_db_table, '`'.$key_field.'` bigint unsigned not null', false);
                             }
 
                             if (!isset($this->database_fields[$sly_table][$db_field]) || preg_match('/^CHANGE\s+/i', $mode)) {
@@ -1746,19 +1903,20 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 if (!isset($fields[$this_db_table])) $fields[$this_db_table] = '';
 
                                 $fields[$this_db_table] .= ($fields[$this_db_table] ? ', ' : '')."$mode `$db_field` $type ".($type == 'bigint' ? ' UNSIGNED' : '').
-                                                           $this->database_field_types_charset[$type];
+                                                           (isset($this->database_field_types_charset[$type]) ? $this->database_field_types_charset[$type] : '');
                             }
                         }
                     }
                 }
+                unset($info);
 
-                if (count($fields)) {
+                if (!empty($fields)) {
 
                     foreach ($fields as $this_db_table => $string_fields) {
 
                         $SQL = $this->__fix_collation("ALTER TABLE `".$this_db_table."` $string_fields;");   
                         
-                        if (!$this->DB->execute($this->SQL_list[] = $SQL)) { $ok = false; break; }  
+                        if (!$this->DB->execute($this->__add_to_debug($SQL))) { $ok = false; break; }  
                     }
 
                     $this->clean_table_cache($sly_table);
@@ -1795,11 +1953,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         if (in_array($sly_table, $this->database_tables)) {
 
             $SQL = 'select `'.$this->__get_field_key($db_table).'` as id'.($extend ? ', `__conn_id__` as cid' : '')." from `$sly_table`";
-            $res = $this->DB->execute($this->SQL_list[] = $SQL);
+            $res = $this->DB->execute($this->__add_to_debug($SQL));
 
             if ($res !== false) {
 
-                if ($res !== true && count($res)) { foreach ($res as $v) { $ids[] = ($extend ? [ 'conn_id' => $v['cid'], 'id'=> $v['id'] ] : $v['id']); }}
+                if ($res !== true && !empty($res)) { foreach ($res as $v) { $ids[] = ($extend ? [ 'conn_id' => $v['cid'], 'id'=> $v['id'] ] : $v['id']); }}
 
                 return $ids;
             }
@@ -1821,6 +1979,20 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         $this->__test_config_initialized();
 
         return $this->database_config['conn_schema']['connector_type'];
+    }
+
+    
+    /**
+     * Get if we need autocomplete multi-lingual data
+     *
+     * @return string
+     */
+
+     public function need_autocomplete_language () {
+ 
+        $this->__test_config_initialized();
+
+        return ($this->database_config['conn_schema']['correct_language'] ? true : false);
     }
 
     /**
@@ -1971,15 +2143,15 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         
             $titles[$table] = [];
             
-            if (       isset($this->database_config['data_schema'][$table]) 
-                and is_array($this->database_config['data_schema'][$table]['fields']) 
-                and    count($this->database_config['data_schema'][$table]['fields'])) {
+            if (      isset($this->database_config['data_schema'][$table]) 
+                && is_array($this->database_config['data_schema'][$table]['fields']) 
+                &&   !empty($this->database_config['data_schema'][$table]['fields'])) {
             
                 foreach ($this->database_config['data_schema'][$table]['fields'] as $field =>& $info) {
                 
                     if (!preg_match('/^___id/', $field)) {
           
-                        if (isset($info['titles']) and count($info['titles'])) {
+                        if (isset($info['titles']) and !empty($info['titles'])) {
                         
                             $titles[$table][$field] = $info['titles'];
                             
@@ -2031,15 +2203,15 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         
             $titles[$table] = [];
             
-            if (       isset($this->database_config['data_schema'][$table]) 
-                and is_array($this->database_config['data_schema'][$table]['fields']) 
-                and    count($this->database_config['data_schema'][$table]['fields'])) {
+            if (      isset($this->database_config['data_schema'][$table]) 
+                && is_array($this->database_config['data_schema'][$table]['fields']) 
+                &&   !empty($this->database_config['data_schema'][$table]['fields'])) {
             
                 foreach ($this->database_config['data_schema'][$table]['fields'] as $field =>& $info) {
                 
                     if (!preg_match('/^___id/', $field)) {
           
-                        if (isset($info['titles']) and count($info['titles'])) {
+                        if (isset($info['titles']) and !empty($info['titles'])) {
                         
                             if (isset($info['titles'][$language])) {
                             
@@ -2120,10 +2292,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         
         $this->__test_config_initialized();
         
-        if(!is_array($values)) {
+        if (!is_array($values)) {
             
-            $values = preg_split('/\s*,\s*/', $values, -1, PREG_SPLIT_NO_EMPTY);
+            $values           = preg_split('/\s*,\s*/', $values, -1, PREG_SPLIT_NO_EMPTY);
             $return_as_string = true;
+
         } else {
             
             $return_as_string = false;
@@ -2140,7 +2313,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     if (isset($field_info['tag_translations'])) {
 
                         $default_language = $this->get_default_language();
-                        $result = [];
+                        $result           = [];
 
                         foreach($values as $k => $v) {
                          
@@ -2148,30 +2321,25 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                 $result[$k] = $field_info['tag_translations'][$language][$v];
 
-                            } else if (isset($field_info['tag_translations'][$default_language][$v])) {    
+                            } else if ( isset($field_info['tag_translations'][$default_language][$v])) {    
 
                                 $result[$k] = $field_info['tag_translations'][$default_language][$v];
                                 
                             } else {
                                 
-                                $result[$k] = $v;
-                                
-                            }
-                            
+                                $result[$k] = $v;  
+                            }   
                         }
                         
                         if($return_as_string){
                             
-                            return implode(",", $result);
+                            return implode(',', $result);
                             
                         } else {
                             
-                            return $result;
-                            
+                            return $result;   
                         }
-                        
                     }
-
                 }
             }
         }
@@ -2224,7 +2392,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 $schema = $this->get_database_table_schema       ($table);
                 $data   = $this->get_response_table_modified_data($table);
 
-                if (is_array($schema) && count($schema) && is_array($data) && count($data)) {
+                if (is_array($schema) && !empty($schema) && is_array($data) && !empty($data)) {
 
                     $fields_conn = [];
 
@@ -2302,7 +2470,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         unset($register, $data[$k], $f_data);
 
-                        if (count($fields)) {
+                        if (!empty($fields)) {
 
                             $ok = true;
                      
@@ -2329,7 +2497,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                 $SQL = "update $tables set $db_fields where `$field_id`='$id'$limit;";
 
-                                if (!$this->DB->execute($this->SQL_list[] = $SQL)) $ok = false;
+                                if (!$this->DB->execute($this->__add_to_debug($SQL))) $ok = false;
 
                             } else {
 
@@ -2339,7 +2507,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                     $SQL = "insert into `$multi_db_table` set `$field_id`='$id', $string_fields;";
 
-                                    if (!$this->DB->execute($this->SQL_list[] = $SQL) && $this->DB->error) $ok = false;
+                                    if (!$this->DB->execute($this->__add_to_debug($SQL)) && $this->DB->error) $ok = false;
                                 }
                             }
 
@@ -2366,11 +2534,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         unset($ids[$id][1][$conn_id]);
 
-                        if (count($ids[$id][1])) {
+                        if (!empty($ids[$id][1])) {
 
                             $SQL = "update `$sly_table` set `__conn_id__`='".addslashes(implode(',', $ids[$id][1]))."' where `$field_id`='$id' limit 1;";
 
-                            if (!$this->DB->execute($this->SQL_list[] = $SQL)) {
+                            if (!$this->DB->execute($this->__add_to_debug($SQL))) {
 
                                 if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
@@ -2388,7 +2556,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         $SQL = "delete from `$multi_db_table` where `$field_id` IN ('".implode("','", $ids_deleted)."') limit $num_deletes;";
 
-                        if (!$this->DB->execute($this->SQL_list[] = $SQL) && $multi_db_table == $sly_table) {
+                        if (!$this->DB->execute($this->__add_to_debug($SQL)) && $multi_db_table == $sly_table) {
 
                             if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
@@ -2417,15 +2585,16 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $this->get_database_tables();
 
+            $errors    = false;
             $db_table  = $this->__verify_table_name($table);
             $sly_table = $this->table_prefix.$db_table;
 
             foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
 
                 $SQL = "delete from `$multi_db_table` where `___modified`<'{$this->database_init_date}'".
-                       (count($this->get_connectors_list()) > 1 ? " and fin_in_set('".$this->database_config['conn_id']."', `__conn_id__`)" : '').';';
+                       (count($this->get_connectors_list()) > 1 ? " and find_in_set('".$this->database_config['conn_id']."', `__conn_id__`)" : '').';';
 
-                if (!$this->DB->execute($this->SQL_list[] = $SQL) && $multi_db_table == $sly_table) {
+                if (!$this->DB->execute($this->__add_to_debug($SQL)) && $multi_db_table == $sly_table) {
 
                     if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
@@ -2461,7 +2630,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $SQL = "TRUNCATE TABLE `$multi_db_table`;";
 
-                if (!$this->DB->execute($this->SQL_list[] = $SQL) && $multi_db_table == $sly_table) {
+                if (!$this->DB->execute($this->__add_to_debug($SQL)) && $multi_db_table == $sly_table) {
 
                     if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
@@ -2486,9 +2655,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      * @param $order array list order data
      * @param $group array list order data
      * @param $limit array list limit data: [ 'page' => number, 'limit' => number ]
-     * @param $get_internal_ids bool, 
-     * @param $get_internal_names bool, 
-     * @param $get_channel_id  bool
+     * @param $get_internal_ids bool
+     * @param $get_internal_names bool
+     * @param $get_channel_id bool
+     * @param $join_child_tables bool
+     * @param $test_child_tables bool
      * @return array
      */
 
@@ -2498,62 +2669,64 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         $fields                 = null, 
         $language               = null, 
         $conditions             = null, 
-        $force_default_language = false, 
+        $force_default_language = null, 
         $order                  = null,
         $group                  = null,
         $limit                  = null,
         $get_internal_ids       = false, 
         $get_internal_names     = false, 
-        $get_channel_id         = false
+        $get_channel_id         = false,
+        $join_child_tables      = false,
+        $test_child_tables      = false
 
         ) {
 
-        $this->get_database_tables();
+        if ($table && $this->table_schema_exists($table)) {
 
-        $db_table  = $this->__verify_table_name($table); 
-        $sly_table = $this->table_prefix.$db_table;
+            $this->get_database_tables();
 
-        if (in_array($sly_table, $this->database_tables)) {
+            $db_table  = $this->__verify_table_name($table); 
+            $sly_table = $this->table_prefix.$db_table;
 
-            $language      = $this->__test_language($language);
-            $base_language = $this->get_default_language();
+            if (in_array($sly_table, $this->database_tables)) {
 
-            if ($force_default_language && $language == $base_language) { $force_default_language = false; }
+                $language        = $this->__test_language($language);
+                $base_language   = $this->get_default_language();
+                $all_fields      = true;
+                $fields_excluded = [];
 
-            if ($fields !== null && !is_array($fields)) {
+                if ($force_default_language === null)                       { $force_default_language = $this->need_autocomplete_language(); }
+                if ($force_default_language && $language == $base_language) { $force_default_language = false; }
 
-                $fields = null;
+                if (is_array($fields) && !empty($fields)) {
 
-            } else if (count($fields)) {
+                    if (isset($fields['exclude']) && is_array($fields['exclude'])) {
 
-                foreach ($fields as $k => $v) { $fields[$k] = strtolower($v); }
-            }
+                        $fields_excluded = $fields['exclude'];
 
-            $select          =
-            $field_title     = '';
-            $has_json_fields = 0;
-            $has_list_fields = false;
-            $tables_db       =
-            $concats         = [];
+                    } else {
 
-            $schema = $this->get_database_table_schema($table, false);
-
-            if (is_array($schema) && count($schema)) {
-
-                $this->get_database_table_fields($sly_table);
-
-                if ($fields === null) {
-
-                    $fields = array_keys($schema);
-
-                    if (!$get_internal_ids) {
-
-                        foreach ($fields as $k => $field) {
-
-                            if (substr($field, 0, 3) === '___') unset($fields[$k]);
-                        }
+                        $all_fields = false;
                     }
                 }
+
+                $select             =
+                $field_title        =
+                $where              =
+                $sql_group          =
+                $sql_order          = 
+                $field_id_db        =
+                $field_id_name      = '';
+                $tables_db          =
+                $concats            =
+                $table_fields       =
+                $field_types        =
+                $select_list        =
+                $sub_wheres         =
+                $sub_where_tables   =
+                $field_keys_added   = [];
+                $table_count        = 
+                $field_count        = 0;
 
                 if (isset($group['concat-fields'])) {
 
@@ -2561,195 +2734,319 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     $group   = (isset($group['group-fields']) ? $group['group-fields'] : null);
                 }
 
-                foreach ($fields as $name => $field) {
+                $add_joins       = ($join_child_tables || $test_child_tables);
+                $table_joins     = $this->__get_table_joins($table, $add_joins);
+                $have_conditions = (empty($conditions) ? false : true);
+                $have_group      = (empty($group)      ? false : true);
 
-                    if (isset($schema[$field])) {
+                foreach ($table_joins as $join_table => $join_field_id) {
 
-                        $info       =& $schema[$field];
-                        $field_name =  addslashes(is_string($name) ? $name : ($get_internal_names ? $field : $info['name']));
-                        $is_file    =  in_array($info['type'], [ 'image', 'file' ]);
+                    $table_count ++;
+                    $fields_added  = false;
+                    $schema        = $this->get_database_table_schema($join_table, false);
+                    $schema_names  = $this->__get_schema_names       ($join_table, $schema);
 
-                        if ($is_file) ++ $has_json_fields;
-                        
-                        if($info['type'] == 'list') {$has_list_fields = true;}
+                    if ($all_fields) {
 
-                        $multi = ((isset($info['has_multilingual']) && $info['has_multilingual']));
-      
-                        if ($force_default_language && $multi) {
+                        $fields = [];
 
-                            $db_field           = $field.'_'.$language;
-                            $db_field_base      = $field.'_'.$base_language;
-                            $this_db_table      = $this->__get_table_for_field($db_field,      $table);
-                            $this_db_table_base = $this->__get_table_for_field($db_field_base, $table);
+                        if ($join_child_tables || $join_table == $table) {
 
-                            $select_field = "IF(`$this_db_table`.`$db_field`!=''".($is_file ? " and `$this_db_table`.`$db_field`!='[]'" : '').
-                                            ", `$this_db_table`.`$db_field`, `$this_db_table_base`.`$db_field_base`)";
+                            $fields = array_keys($schema);
 
-                            if (!isset($tables_db[$this_db_table]))                                               $tables_db[$this_db_table]      = 1;
-                            if ($this_db_table != $this_db_table_base && !isset($tables_db[$this_db_table_base])) $tables_db[$this_db_table_base] = 1;
+                            if (!$get_internal_ids) {
 
-                        } else {
+                                foreach ($fields as $k => $field) {
 
-                            $db_field      = $field.($multi ? '_'.$language : '');
-                            $this_db_table = $this->__get_table_for_field($db_field, $table);
-
-                            $select_field = "`$this_db_table`.`$db_field`";
-
-                            if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                                    if (substr($field, 0, 3) === '___') unset($fields[$k]);
+                                }
+                            }
                         }
-
-                        if (isset($concats[$field])) {
-
-                            $separator    = ((isset($concats[$field]['separator']) and $concats[$field]['separator']) ? $concats[$field]['separator'] : ', ');
-                            $select_field = 'GROUP_CONCAT('.$select_field.
-                                            ((isset($concats[$field]['order']) and $concats[$field]['order']) ? 
-                                                ' ORDER BY 1 '. (strtolower(substr($concats[$field]['order'], 0, 1)) != 'd' ? 'ASC' : 'DES') : '').
-                                            ' SEPARATOR \''.addslashes($separator).'\')';
-                        }
-
-                        $select .= ($select ? ', ' : '')."$select_field as `$field_name`";
-
-                        unset($info);
-
-                        if (preg_match('/^\w+_(title|name)(_.*)?$/', $field)) { $field_title = $field; }
                     }
-                }
-            }
 
-            if ($select) {
+                    $field_names = [];
 
-                list($where, $tables_db_where) = $this->__get_where_for_extract($conditions, $schema, $table, $force_default_language, $language, $base_language);
+                    foreach ($fields as $name => $field) {
 
-                if (count($tables_db_where)) {
+                        $field = $this->__exists_field_in_schema($field, $schema, $schema_names);
+
+                        if ($field && !in_array($field, $fields_excluded)) {
+
+                            $info       =& $schema[$field];
+                            $field_name =  addslashes(is_string($name) ? $name : ($get_internal_names ? $field : $info['name']));
+
+                            if (   (!$join_child_tables && isset($field_names[$field_name])) 
+                                || ( $join_child_tables && $info['type'] == 'key' && isset($field_keys_added[$field]))) continue;
+
+                            $is_file      =  in_array($info['type'], [ 'image', 'file' ]);
+                            $multi        = ((isset($info['has_multilingual']) && $info['has_multilingual']));
+                            $fields_added ++;
     
-                    $tables_db = array_merge($tables_db, $tables_db_where);
-                }
+                            if ($force_default_language && $multi) {
 
-                $sql_group = $this->__get_group_for_extract($group, $schema, $table, $language, $base_language);
-                $sql_order = '';
+                                $db_field           = $field.'_'.$language;
+                                $db_field_base      = $field.'_'.$base_language;
+                                $this_db_table      = $this->__get_table_for_field($db_field,      $join_table);
+                                $this_db_table_base = $this->__get_table_for_field($db_field_base, $join_table);
 
-                if (is_array($order)) {
+                                $select_field = "IF(`$this_db_table`.`$db_field`!=''".($is_file ? " and `$this_db_table`.`$db_field`!='[]'" : '').
+                                                ", `$this_db_table`.`$db_field`, `$this_db_table_base`.`$db_field_base`)";
 
-                    foreach ($order as $field => $ord) {
+                                if (!isset($tables_db[$this_db_table])) {
+                                    
+                                    $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
+                                }
 
-                        if (isset($schema[$field])) {
+                                if ($this_db_table != $this_db_table_base && !isset($tables_db[$this_db_table_base])) {
+                                    
+                                    $tables_db[$this_db_table_base] = $this->__get_field_id_for_table_join($this_db_table_base, $join_field_id);
+                                }
 
-                               if (!$db_field = $this->__get_real_field($field, $table, $language)) {
+                            } else {
 
-                                    $db_field = $this->__get_real_field($field, $table, $base_language);
+                                $db_field      = $field.($multi ? '_'.$language : '');
+                                $this_db_table = $this->__get_table_for_field($db_field, $join_table);
+                                $select_field  = "`$this_db_table`.`$db_field`";
+
+                                if (!isset($tables_db[$this_db_table])) {
+                                    
+                                    $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
+                                }
                             }
 
-                            if ($db_field) {
+                            if (isset($concats[$field])) {
 
-                                if (strtoupper($ord) != 'ASC') { $ord = 'DESC'; }
+                                $separator    = ((isset($concats[$field]['separator']) and $concats[$field]['separator']) ? $concats[$field]['separator'] : ', ');
+                                $select_field = 'GROUP_CONCAT('.$select_field.
+                                                ((isset($concats[$field]['order']) and $concats[$field]['order']) ? 
+                                                    ' ORDER BY 1 '. (strtolower(substr($concats[$field]['order'], 0, 1)) != 'd' ? 'ASC' : 'DES') : '').
+                                                ' SEPARATOR \''.addslashes($separator).'\')';
+                            }
 
-                                $this_db_table   = $this->__get_table_for_field($db_field, $table);
-                                $sql_order      .= ($sql_order ? ', ' : '')."`$this_db_table`.`$db_field` $ord";
+                            $field_ref = 't'.$table_count.'f'.($field_count ++).'.'.$field;
 
-                                if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                            if ($info['type'] == 'key' && $info['name'] == 'ID') {
+
+                                $field_keys_added[$field] = $field_name;
+                            }
+
+                            $select_list [$field_ref]  = $select_field.' as \''.addslashes($field_ref).'\'';
+                            $field_types [$field_ref]  = $info['type'];
+                            $table_fields[$field_ref]  = [ $join_table, $field, $field_name ];
+                            $field_names [$field_name] = $field_ref;
+
+                            unset($info);
+
+                            if ($join_table == $table && preg_match('/^\w+_(title|name)(_.*)?$/', $field)) { $field_title = $field; }
+                        }
+                    }
+
+                    if ($fields_added) {
+
+                        $field_id_db   = "`$this_db_table`.`$join_field_id`";
+                        $field_id_name = (isset($schema[$join_field_id]) ? ($get_internal_names ? $join_field_id : addslashes($schema[$join_field_id]['name'])) : '__id__');
+                    }
+
+                    if ($have_conditions) {
+
+                        list($sub_where, $tables_db_where) = $this->__get_where_for_extract($conditions, $schema, $join_table, $force_default_language, $language, $base_language, '', 'or');
+
+                        if ($sub_where and !empty($tables_db_where)) { 
+ 
+                            $sub_table = array_shift($tables_db_where);
+
+                            if ($sub_table !== $sly_table) {
+
+                                $sub_wheres[$sub_table]       = $sub_where;
+                                $sub_where_tables[$sub_table] = [$join_field_id, $tables_db_where];
+
+                            } else {
+
+                                $where .= ($where ? ' or ' : '').$sub_where;
                             }
                         }
                     }
-                }
 
-                if ($field_title and !$sql_order) {
+                    if ($have_group) {
 
-                    if (!$db_field = $this->__get_real_field($field_title, $table, $language)) {
+                        list($part_group, $tables_db_group) = $this->__get_group_for_extract($group, $schema, $join_table, $language, $base_language);
 
-                         $db_field = $this->__get_real_field($field_title, $table, $base_language);
+                        if ($part_group) {
+
+                            $sql_group .= ($sql_group ? ', ' : '').$part_group;
+                            
+                            foreach ($tables_db_group as $table_group) { 
+                                
+                                if (!isset($tables_db[$table_group])) {
+                                    
+                                    $tables_db[$table_group] = $this->__get_field_id_for_table_join($table_group, $join_field_id);
+                                }
+                            }
+                        }
                     }
 
-                    if ($db_field) { 
-                        
-                        $this_db_table = $this->__get_table_for_field($db_field, $table);
-                        $sql_order     = "`$this_db_table`.`$db_field` ASC";
-                    
-                        if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
-                    }
-                }
+                    if (is_array($order) and !empty($order)) {
 
-                if ($field_title and $sql_order == '') {
-                    
-                    $this_db_table = $this->__get_table_for_field($field_title, $table);
-                    $sql_order     = "`$this_db_table`.`$field_title` ASC";
+                        foreach ($order as $field => $ord) {
 
-                    if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
-                }
+                            $field = $this->__exists_field_in_schema($field, $schema, $schema_names);
 
-                $field_id      = $this->__get_field_key($db_table);
-                $string_tables = '';
+                            if ($field) {
 
-                foreach (array_keys($tables_db) as $this_db_table) {
+                                unset($order[$field]);
 
-                    if ($this_db_table) {
-                        
-                        $string_tables .= ($string_tables ? " left join `$this_db_table` using(`$field_id`)" : "`$this_db_table`");
-                    }
-                }
+                                if (!$db_field = $this->__get_real_field($field, $join_table, $language)) {
+                                     $db_field = $this->__get_real_field($field, $join_table, $base_language);
+                                }
 
-                if ($string_tables) {
+                                if ($db_field) {
 
-                    $field_id_name = (isset($schema[$field_id]) ? ($get_internal_names ? $field_id : addslashes($schema[$field_id]['name'])) : '__id__');
-                    
-                    $SQL = 'select '.(($get_internal_ids and strpos($select, "`$field_id_name`") === false) ? "`$field_id` as `$field_id_name`, " : '').
-                                     ($get_channel_id ? '`__conn_id__`, ' : '')."$select from $string_tables".
-                                     ($where ? ' where '.$where : '').
-                                     ($sql_group ? ' group by '.$sql_group : '').
-                                     ($sql_order ? ' order by '.$sql_order : '').
-                                     ((is_array($limit) and isset($limit['limit']) and $limit['limit']) ? 
-                                        ' limit '.($limit['page'] > 0 ? addslashes($limit['page']).', ' : '').addslashes($limit['limit']) : '');
+                                    if (strtoupper($ord) != 'ASC') { $ord = 'DESC'; }
 
-                    $res = $this->DB->execute($this->SQL_list[] = $SQL);
+                                    $this_db_table = $this->__get_table_for_field($db_field, $join_table);
+                                    $sql_order    .= ($sql_order ? ', ' : '')."`$this_db_table`.`$db_field` $ord";
 
-                    if ($res === false) {
-
-                        if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
-
-                        return false;
-                    }
-        
-                    if (is_array($res) && count($res)) {
-
-                        if (!isset($res[0])) { $res = array($res); }
-
-                        if ($has_json_fields || $has_list_fields) {
-
-                            foreach ($res as $k =>& $data) {
-
-                                foreach ($data as $field => $value) {
-
-                                    if (isset($schema[$field]['type'])) {
-
-                                        if (in_array($schema[$field]['type'], [ 'image', 'file' ])) {
-
-                                            $res[$k][$field] = json_decode($value, 1);
-
-                                        } else if ($schema[$field]['type'] == 'list') {
-
-                                            $res[$k][$field] = $this->get_list_field_values_translations($language, $field, $table, $value);
-                                        }
+                                    if (!isset($tables_db[$this_db_table])) {
+                                        
+                                        $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
                                     }
                                 }
                             }
                         }
-
-                        return $res;
                     }
                 }
-            }
-        }
+
+                if (!empty($select_list)) {
+
+                    $select = implode(', ', $select_list); 
+
+                    if ($field_title and !$sql_order) {
+
+                        if (!$db_field = $this->__get_real_field($field_title, $table, $language) and $language != $base_language) {
+                             $db_field = $this->__get_real_field($field_title, $table, $base_language);
+                        }
+
+                        if ($db_field) { 
+                            
+                            $this_db_table = $this->__get_table_for_field($db_field, $table);
+                            $sql_order     = "`$this_db_table`.`$db_field` ASC";
+                        
+                            if (!isset($tables_db[$this_db_table])) {
+                                
+                                $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $table_joins[$table]);
+                            }
+                        }   
+                    }
+
+                    $string_tables = '';
+
+                    foreach ($tables_db as $this_db_table => $this_db_join_id) {
+
+                        if ($this_db_table) {
+                            
+                            $string_tables .= ($string_tables ? " left join `$this_db_table` using(`$this_db_join_id`)" : "`$this_db_table`");
+                        }
+                    }
+
+                    if ($string_tables) {
+
+                        if (!empty($sub_where_tables)) {
+
+                            $sub_where_tables[$sly_table] = [$tables_db[$sly_table], []];
+           
+                            foreach ($sub_where_tables as $this_db_table => $this_db_config) {
+
+                                $sub_where = $this->__add_sub_selects_in_where($sly_table, $this_db_table, $this_db_config[0], $sub_where_tables, $sub_wheres);
+
+                                if ($sub_where) $where .= ($where ? ' or ' : '').$sub_where;
+                            }
+                        }
+
+                        $SQL = 'select '.(($get_internal_ids and $field_id_name) ? "$field_id_db as `$field_id_name`, " : '').
+                                         ($get_channel_id ? "`$this_db_table`.`__conn_id__`, " : '')."$select from $string_tables".
+                                         ($where ? ' where '.$where : '').
+                                         ($sql_group ? ' group by '.$sql_group : '').
+                                         ($sql_order ? ' order by '.$sql_order : '').
+                                         ((is_array($limit) and isset($limit['limit']) and $limit['limit']) ? 
+                                            ' limit '.($limit['page'] > 0 ? addslashes($limit['page']).', ' : '').addslashes($limit['limit']) 
+                                            : 
+                                            (is_numeric($limit) ? ' limit 0, '.addslashes($limit) : ''));
+
+                        $res = $this->DB->execute($this->__add_to_debug($SQL));
+
+                        if ($res === false) {
+
+                            if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
+
+                            return false;
+                        }
+            
+                        if (is_array($res) && !empty($res)) {
+
+                            if (!isset($res[0])) { $res = array($res); }
+
+                            $list = [];
+
+                            foreach ($res as $k =>& $data) {
+
+                                $list[$k] = [];
+
+                                foreach ($data as $field => $value) {
+
+                                    if (isset($field_types[$field])) {
+
+                                        list($table_join, $real_field, $public_field) = $table_fields[$field];
+
+                                        if (!($exists = array_key_exists($public_field, $list[$k])) or !empty($value)) {
+
+                                            if (in_array($field_types[$field], [ 'image', 'file' ])) {
+
+                                                $value = (!in_array($value, ['[]', '{}']) ? json_decode($value, 1) : '');
+
+                                                if (!$exists || !empty($value)) $list[$k][$public_field] = $value;
+
+                                            } else if ($field_types[$field] == 'list') {
+
+                                                $value = $this->get_list_field_values_translations($language, $real_field, $table_join, $value);
+
+                                                if (!$exists || !empty($value)) $list[$k][$public_field] = $value;
+
+                                            } else {
+
+                                                $list[$k][$public_field] = $value;
+                                            }
+                                        }
+
+                                    } else if (!array_key_exists($field, $list[$k])) {
+
+                                        $list[$k][$field] = $value;
+                                    }
+                                }
+                                unset($res[$k]);
+                            }
+      
+                            return $list;
+                        }
+                    }
+                }
+
+            } else $this->__trigger_error('Uknow database table: '.$sly_table, 107);
+        }     else $this->__trigger_error('Uknow table: '.$table, 106);
 
         return [];
     }
 
     /**
-     *  Get the total number of rows of extract with conditions
+     * Get the total number of rows of extract with conditions
      *
      * @param $table string database table
      * @param $language string language need
      * @param $conditions array for where
      * @param $force_default_language boolean include default language info
      * @param $group array list order data
+     * @param $test_child_tables bool
+     *
+     * @return integer
      */
 
     public function get_num_rows (
@@ -2758,7 +3055,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         $language               = null, 
         $conditions             = null, 
         $force_default_language = false, 
-        $group                  = null
+        $group                  = null,
+        $test_child_tables      = false
     
         ) {
 
@@ -2767,70 +3065,245 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         $db_table  = $this->__verify_table_name($table); 
         $sly_table = $this->table_prefix.$db_table;
 
-        if (in_array($sly_table, $this->database_tables)) {
+        if (in_array($sly_table, $this->database_tables) && $this->table_schema_exists($table)) {
 
-            $schema = $this->get_database_table_schema($table, false);
+            if (isset($group['concat-fields'])) {
 
-            if (is_array($schema) && count($schema)) {
+                $group = (isset($group['group-fields']) ? $group['group-fields'] : null);
+            }
 
-                $language      = $this->__test_language($language);
-                $base_language = $this->get_default_language();
+            $language       = $this->__test_language($language);
+            $base_language  = $this->get_default_language();
+            $tables_db      = 
+            $tables_where   =
+            $sub_wheres     = [];
+            $sql_group      = '';
 
-                if ($force_default_language && $language == $base_language) { $force_default_language = false; }
+            if ($force_default_language && $language == $base_language) { $force_default_language = false; }
 
-                list($where, $tables_db) = $this->__get_where_for_extract($conditions, $schema, $table, $force_default_language, $language, $base_language);
-                $sql_group               = $this->__get_group_for_extract($group, $schema, $table, $language, $base_language);
+            $have_conditions = (empty($conditions) ? false : true);
+            $have_group      = (empty($group)      ? false : true);
+            $table_joins     = $this->__get_table_joins($table, $test_child_tables);
 
-                if (!isset($tables_db[$sly_table])) $tables_db[$sly_table] = 1;
+            foreach ($table_joins as $join_table => $join_field_id) {
 
-                $field_id      = $this->__get_field_key($db_table);
-                $string_tables = '';
+                $schema = $this->get_database_table_schema($join_table, false);
 
-                foreach (array_keys($tables_db) as $this_db_table) {
+                if ($test_child_tables and $join_table != $table) {
 
-                    if ($this_db_table) {
-                        
-                        $string_tables .= ($string_tables ? " left join `$this_db_table` using(`$field_id`)" : "`$this_db_table`");
+                    $db_join_table = $this->table_prefix.$this->__verify_table_name($join_table); 
+
+                    if (!isset($tables_db[$db_join_table])) { $tables_db[$db_join_table] = [$join_field_id, [$db_join_table]]; }
+                }
+
+                if ($have_conditions) {
+
+                    list($sub_where, $tables_db_where) = $this->__get_where_for_extract($conditions, $schema, $join_table, $force_default_language, $language, $base_language, '', 'or');
+
+                    if  ($sub_where) {
+
+                        $sub_table              = array_shift($tables_db_where);
+                        $sub_wheres[$sub_table] = $sub_where;
+
+                        if (!isset($tables_where[$sub_table])) { $tables_where[$sub_table]    = [$join_field_id, []]; }
+                        if (!empty($tables_where))             { $tables_where[$sub_table][1] = array_merge($tables_where[$sub_table][1], $tables_db_where); }
                     }
                 }
 
-                if ($string_tables) {
+                if ($have_group) {
 
-                    if ($sql_group) {
+                    list($part_group, $tables_db_group) = $this->__get_group_for_extract($group, $schema, $join_table, $language, $base_language);
 
-                        $SQL = "select SQL_CACHE count(1) as total from (select count(1) as total from $string_tables".($where ? ' where '.$where : '').' group by '.$sql_group.') as q';
+                    if  ($part_group) {
 
-                    } else {
-                        
-                        $SQL = "select SQL_CACHE count(1) as total from $string_tables".($where ? ' where '.$where : '');
+                        $sql_group .= ($sql_group ? ', ' : '').$part_group;
+                        $sub_table  = array_shift($tables_db_group);
+
+                        if (!isset($tables_db[$sub_table])) { $tables_db[$sub_table]    = [$join_field_id, []]; }
+                        if (!empty($tables_db_where))       { $tables_db[$sub_table][1] = array_merge($tables_db[$sub_table][1], $tables_db_group); }
                     }
-
-                    $res = $this->DB->execute($this->SQL_list[] = $SQL);
-
-                    if (isset($res[0])) {
-
-                        return $res[0]['total'];
-
-                    } else if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
                 }
             }
+
+            $SQL = "select SQL_CACHE count(1) as total from `$sly_table`";
+
+            if (  !empty($tables_db)) {
+            
+                foreach ($tables_db as $config) {
+
+                    foreach ($config[1] as $join_table) {
+
+                        if ($join_table != $sly_table) {
+
+                            $SQL .= " left join `$join_table` using(`{$config[0]}`)";
+                        }
+                    }
+                }
+            }
+
+            $where = (isset($sub_wheres[$sly_table]) ? $sub_wheres[$sly_table] : '');
+            
+            if (!isset($tables_where[$sly_table])) { $tables_where[$sly_table] = [$join_field_id, [$sly_table]]; }
+
+            if (count($tables_where) > 1) {
+    
+                foreach ($tables_where as $this_db_table => $this_db_config) {
+
+                    $sub_where = $this->__add_sub_selects_in_where($sly_table, $this_db_table, $this_db_config[0], $tables_where, $sub_wheres);
+
+                    if ($sub_where) $where .= ($where ? ' or ' : '').$sub_where;
+                }
+            }
+
+            if ($where) $SQL .= ' where '.$where;
+
+            if ($sql_group) {
+
+                $SQL = 'select SQL_CACHE count(1) as total from ('.preg_replace('/^(select\s+)SQL_CACHE\s+/i', '\\1', $SQL).' group by '.$sql_group.') as q';
+            }
+
+            $res = $this->DB->execute($this->__add_to_debug($SQL));
+
+            if (isset($res[0])) {
+
+                return $res[0]['total'];
+
+            } else if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
         }
 
         return 0;
     }
 
     /**
-     *  Get where conditions for export
-     *
+     * Get real field for table join
+     * 
+     * @return string
      */
 
-    private function __get_where_for_extract ($conditions, &$schema, $table, $force_default_language, $language, $base_language) {
+    function __get_field_id_for_table_join ($table_join, $join_field_id) {
 
-        $where      = '';
-        $tables_db  = [];
-        $group_open = 0;
+        if (preg_match('/___[0-9]+$/', $table_join)) {
+            
+            $table_base    = preg_replace(['/^'.preg_quote($this->table_prefix, '/').'/', '/___[0-9]+$/'], '', $table_join);
+            $join_field_id = $this->__get_field_key($table_base);
+        }
 
-        if (is_array($conditions)) {
+        return $join_field_id;
+    }
+
+    /**
+     *  Get sub-selects in where
+     *
+     * @return string
+     */
+
+    function __add_sub_selects_in_where ($sly_table, $db_table, $db_id, &$tables_db, &$sub_wheres) {
+
+        $SQL = '';
+
+        foreach ($tables_db as $this_db_table => $this_db_config) {
+
+            if ($this_db_table != $db_table and $this_db_table != $sly_table and $this_db_config[0] == $db_id) {
+
+                $SQL .= ($SQL ? ' or ' : '')."`{$this_db_config[0]}` IN (select DISTINCT `{$this_db_config[0]}` from `$this_db_table`";
+
+                if (  !empty($this_db_config[1])) {
+            
+                    foreach ($this_db_config[1] as $join_table) {
+
+                        $SQL .= " left join `$join_table` using(`{$this_db_config[0]}`)";
+                    }
+                }
+
+                if (isset($sub_wheres[$this_db_table])) {
+
+                    $SQL .= ' where '.$sub_wheres[$this_db_table].') and '.(substr($sub_wheres[$this_db_table], 0, 1) == '(' ? 
+                                                                                   $sub_wheres[$this_db_table] : '('.$sub_wheres[$this_db_table].')');
+                } else {
+
+                    $SQL .= ')';
+                }
+            }
+        }
+
+        return $SQL;
+    }
+
+    /**
+     *  Get tables in join
+     *
+     * @param $table string database table
+     * @param $join_child_tables bool
+     *
+     * @return array
+     */
+    
+    private function __get_table_joins ($table, $join_child_tables = false) {
+
+        $db_table    = $this->__verify_table_name($table);
+        $table_joins = [ $table => $this->__get_field_key($db_table) ];
+
+        if ($join_child_tables) {
+
+            $tables = $this->get_all_table_joins();
+
+            foreach ($tables as $test_table => $joins) {
+
+                if ($test_table != $table) {
+
+                    foreach ($joins as $join_table => $join_key) {
+
+                        if ($join_table == $table) $table_joins[$test_table] = $this->__get_db_key_from_field($join_key, $join_table);
+                    }
+                }
+            }
+        }
+
+        return $table_joins;
+    }
+
+    /**
+     * Get schema field names
+     *
+     * @param $table string database table
+     * @param $schema array
+     *
+     * @return array
+     */
+
+    private function __get_schema_names ($table, &$schema) {
+
+        $schema_names = []; 
+
+        foreach ($schema as $field =>& $info) { $schema_names[$info['name']] = $field; } unset($info);
+
+        return $schema_names;
+    }
+
+    /**
+     * Get where conditions for export
+     *
+     * @param $conditions array
+     * @param $schema array
+     * @param $table string database table
+     * @param $force_default_language string default language code
+     * @param $language string language code
+     * @param $base_language string base language code
+     * @param $where string existing where
+     * @param $default_logic string default logic union
+    *
+     * @return array
+     */
+
+    private function __get_where_for_extract ($conditions, &$schema, $table, $force_default_language, $language, $base_language, $where = '', $default_logic = 'and') {
+
+        $tables_db = [];
+        
+        if (is_array($conditions) && !empty($conditions)) {
+
+            $group_open   = 0;
+            $new_where    = '';
+            $schema_names = $this->__get_schema_names($table, $schema);
 
             foreach ($conditions as &$param) {
 
@@ -2838,51 +3311,55 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     if ($param['group'] == 'close') {
 
-                        if ($group_open) $where .= ')'; else -- $group_open;
+                        if ($group_open) $new_where .= ')'; else -- $group_open;
 
                     } else {
 
-                        $where .= ' '.($where ? (in_array($param['group'], array('or', 'not', 'xor')) ? $param['group'] : 'and').' ' : '').' (';
+                        $new_where .= ' '.($new_where ? (in_array($param['group'], ['or', 'not', 'xor']) ? $param['group'] : $default_logic).' ' : '').' (';
 
                         ++ $group_open;
                     }
 
-                } else {
+                } else if (isset($param['field'])) {
 
                     $clause = '';
 
                     if  (isset($param['search']) && $param['search']) {
 
-                        $sfields = explode(',', $param['field']);
+                        $sfields = (is_array($param['field']) ? $param['field'] : explode(',', $param['field']));
                         $sfields = array_unique($sfields);
                         $fgroup  = '';
-
+                   
                         foreach ($sfields as $field) {
 
-                            if ($field && isset($schema[$field])) {
+                            if ($field) {
+    
+                                $field = $this->__exists_field_in_schema($field, $schema, $schema_names);
+    
+                                if ($field) {
 
-                                if (!$db_field = $this->__get_real_field($field, $table, $language)) {
+                                    if (!$db_field = $this->__get_real_field($field, $table, $language)) {
+                                         $db_field = $this->__get_real_field($field, $table, $base_language);
+                                    }
 
-                                     $db_field = $this->__get_real_field($field, $table, $base_language);
-                                }
-
-                                if ($db_field) { 
-                                    
-                                    $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                    $fgroup  .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
-
-                                    if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
-                                
-                                    if (   $force_default_language 
-                                        && $language != $base_language
-                                        && isset($schema[$field]['has_multilingual'])
-                                        &&       $schema[$field]['has_multilingual']
-                                        && $db_field = $this->__get_real_field($field, $table, $base_language)) {
-
+                                    if ($db_field) { 
+                                        
                                         $this_db_table = $this->__get_table_for_field($db_field, $table);
                                         $fgroup  .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
 
-                                        if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                                        if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                                    
+                                        if (   $force_default_language 
+                                            && $language != $base_language
+                                            && isset($schema[$field]['has_multilingual'])
+                                            &&       $schema[$field]['has_multilingual']
+                                            && $db_field = $this->__get_real_field($field, $table, $base_language)) {
+
+                                            $this_db_table = $this->__get_table_for_field($db_field, $table);
+                                            $fgroup  .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
+
+                                            if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                                        }
                                     }
                                 }
                             }
@@ -2890,22 +3367,22 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         if ($fgroup) {
 
-                            $clause = ($param['strict'] ? 'BINARY ' : '').
+                            $clause = ((isset($param['strict']) && $param['strict']) ? 'BINARY ' : '').
                                       'lower('.(count($sfields) > 1 ? "concat($fgroup)" : $fgroup).") like '%".addslashes(strtolower($param['search']))."%'";
                         }
 
                     } else if (isset($param['value']) && $db_field = $this->__get_real_field($param['field'], $table, $language)) {
 
-                        if (!$param['condition']) $param['condition'] = '=';
+                        if (!isset($param['condition']) || !$param['condition']) $param['condition'] = '=';
 
                         $filter = (is_array($param['value']) ? ($param['condition'] != '=' ? ' NOT' : '')." IN ('".implode("','", array_map('addslashes', $param['value']))."')"
                                                                 :
                                                                 $param['condition']."'".addslashes($param['value'])."'");
 
                         $this_db_table = $this->__get_table_for_field($db_field, $table);
-                        $clause        = ($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`$filter";
+                        $clause        = "(`$this_db_table`.`$db_field`$filter".($param['strict'] ? " and BINARY `$this_db_table`.`$db_field`$filter" : '').')';
 
-                        if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                        if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
 
                         if (   $force_default_language
                             && $language != $base_language
@@ -2914,57 +3391,111 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                             && $db_field = $this->__get_real_field($param['field'], $table, $base_language)) {
 
                             $this_db_table = $this->__get_table_for_field($db_field, $table);
-                            $clause        = "($clause or ".($param['strict'] ? 'BINARY ' : '')."`$this_db_table`.`$db_field`$filter";
+                            $clause        = "($clause or (`$this_db_table`.`$db_field`$filter".($param['strict'] ? " and BINARY `$this_db_table`.`$db_field`$filter" : '').'))';
 
-                            if (!isset($tables_db[$this_db_table])) $tables_db[$this_db_table] = 1;
+                            if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
                         }
                     }
 
                     if ($clause) {
 
-                        $where .= (($where && substr($where, -1) != '(') ? ' '.($param['logic'] ? $param['logic'] : 'and').' ' : '').$clause;
+                        $new_where .= (($new_where && substr($new_where, -1) != '(') ? ' '.((isset($param['logic']) and $param['logic']) ? $param['logic'] : $default_logic).' ' : '').$clause;
                     }
                 }
             }
+            unset($param);
+
+            if ($new_where) {
+                        
+                $where = ($where ? (substr($where, 0, 1) != '(' ? "($where)" : $where)." or ($new_where)" : $new_where);
+            }
+
+            if (count($tables_db) > 1) $tables_db = array_unique($tables_db);
         }
 
         return [ $where, $tables_db ];
     }
 
     /**
-     *  Get SQL group for export
+     * Get SQL group for export
+     *
+     * @param $group array
+     * @param $schema array
+     * @param $table string database table
+     * @param $language string language code
+     * @param $base_language string base language code
+     *
+     * @return string
      */
 
-     private function __get_group_for_extract ($group, &$schema, $table, $language, $base_language) {
+     private function __get_group_for_extract (&$group, &$schema, $table, $language, $base_language) {
 
-        $sql_group = '';
+        $sql_group      = '';
+        $this_db_tables = [];
 
-        if ($group !== null and $group) {
+        if ($group !== null and !empty($group)) {
+
+            $schema_names = $this->__get_schema_names($table, $schema);
 
             if (!is_array($group)) $group = [ $group ];
-            
-            foreach ($group as $field) {
+     
+            foreach ($group as $k => $field) {
 
-                if (isset($schema[$field])) {
+                $field = $this->__exists_field_in_schema($field, $schema, $schema_names);
+
+                if ($field) {
 
                     if (!$db_field = $this->__get_real_field($field, $table, $language)) {
-
                          $db_field = $this->__get_real_field($field, $table, $base_language);
                     }
 
                     if ($db_field) {
 
-                        $sql_group .= ($sql_group ? ', ' : '')."BINARY `$db_field`";
+                        $this_db_table    = $this->__get_table_for_field($db_field, $table);
+                        $this_db_tables[] = $this_db_table;
+                        $sql_group       .= ($sql_group ? ', ' : '')."BINARY `$this_db_table`.`$db_field`";
                     }
+
+                    unset($group[$k]);
                 }
             }
         }
 
-        return $sql_group;
+        return [$sql_group, $this_db_tables];
+    }
+
+    /**
+     * Get field if exists in schema
+     *
+     */
+
+    private function __exists_field_in_schema ($field, &$schema, &$schema_names) {
+
+        if (!isset($schema[$field])) {
+
+            if ( isset($schema_names[$field])) {
+                
+                return $schema_names[$field];
+              
+            } else if (($strlow_field = strtolower($field)) !== $field) {
+
+                if (isset($schema[$strlow_field])) {
+
+                    return $strlow_field;
+                }
+            } 
+
+            return false;
+        }
+
+        return $field;
     }
 
     /** 
      *  Gets a multi-table name from a field
+     *
+     * @param $db_field string database column name
+     * @param $table string database table
      */
 
     private function __get_table_for_field ($db_field, $table) {
@@ -2999,11 +3530,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $this->get_database_tables();
 
-        if (count($this->database_tables)) {
+        if (!empty($this->database_tables)) {
 
-            $tables = (count($this->database_config['data_schema']) ? array_keys($this->database_config['data_schema']) : []);
+            $tables = (!empty($this->database_config['data_schema']) ? array_keys($this->database_config['data_schema']) : []);
 
-            if (count($tables)) {
+            if (!empty($tables)) {
 
                 if ($delete_config == true) { $tables[] = $this->table_config; }
 
@@ -3015,7 +3546,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         $SQL = "DROP TABLE IF EXISTS `$sly_table`";
 
-                        if (!$this->DB->execute($this->SQL_list[] = $SQL)) {
+                        if (!$this->DB->execute($this->__add_to_debug($SQL))) {
 
                             if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
                         }
@@ -3051,16 +3582,16 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $SQL = "delete from `".$this->table_prefix.$this->table_config."` where `conn_code`='$code' limit 1;";
 
-            if (!$this->DB->execute($this->SQL_list[] = $SQL)) {
+            if (!$this->DB->execute($this->__add_to_debug($SQL))) {
 
                 if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
             }
 
             if ($clean_items && $this->response_error!=104) {
 
-                $tables = (count($this->database_config['data_schema']) ? array_keys($this->database_config['data_schema']) : []);
+                $tables = (!empty($this->database_config['data_schema']) ? array_keys($this->database_config['data_schema']) : []);
 
-                if (count($tables)) {
+                if (!empty($tables)) {
 
                     $conn_id = $this->database_config['conn_id'];
 
@@ -3077,7 +3608,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         $del_ids[$sly_table] = array_keys($ids);
 
-                        if (count($ids)) {
+                        if (!empty($ids)) {
 
                             $field_id = $this->__get_field_key($db_table);
 
@@ -3087,11 +3618,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                     unset($cons[$conn_id]);
 
-                                    if (count($cons)) {
+                                    if (!empty($cons)) {
 
                                         $SQL = "update `$sly_table` set `__conn_id__`='".addslashes(implode(',', array_flip($cons)))."' where `$field_id`='$id' limit 1;";
 
-                                        if (!$this->DB->execute($this->SQL_list[] = $SQL)) {
+                                        if (!$this->DB->execute($this->__add_to_debug($SQL))) {
 
                                             if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
                                         }
@@ -3101,7 +3632,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 }
                             }
 
-                            if (count($ids)) {
+                            if (!empty($ids)) {
 
                                 $this->get_database_table_fields($sly_table);
 
@@ -3111,7 +3642,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                     $SQL = "delete from `$multi_db_table` where $where;";
 
-                                    if (!$this->DB->execute($this->SQL_list[] = $SQL)) {
+                                    if (!$this->DB->execute($this->__add_to_debug($SQL))) {
 
                                         if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
                                     }
@@ -3140,6 +3671,93 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         return $a1; 
     } 
+
+    /**
+     * Get headings of fields in certain language
+     *
+     * @param string $language (ISO 639-1)
+     *
+     * @return array
+     */
+
+     public function get_headings ($language, $table = null) {
+
+        $this->__test_config_initialized();
+
+        if (!isset($this->database_config['conn_schema']['headings'])) { return []; };
+
+        $headings         = [];
+        $default_language = $this->get_default_language();
+   
+        if ($table) {
+
+            if (   isset($this->database_config['conn_schema']['headings'][$table])) {
+
+                foreach ($this->database_config['conn_schema']['headings'][$table] as $info) {
+
+                    $title = $info['title'];
+
+                    if (isset($info['titles'])) {
+                        
+                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
+                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                    }
+
+                    $headings[] = [
+
+                        'title'          => $title,
+                        'position'       => $info['position'],
+                        'field_previous' => $info['field_previous']
+                    ];
+                }
+                unset($info_fields);
+            }
+
+        } else {
+
+            foreach ($this->database_config['conn_schema']['headings'] as $table =>& $titles) {
+
+                $headings[$table] =  [];
+
+                foreach ($titles as $info) {
+
+                    $title = $info['title'];
+
+                    if (isset($info['titles'])) {
+                        
+                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
+                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                    }
+
+                    $headings[$table][] = [
+
+                        'title'          => $title,
+                        'position'       => $info['position'],
+                        'field_previous' => $info['field_previous']
+                    ];
+                }
+                unset($info_fields);
+            }
+            unset($titles);
+        }
+        
+        return $headings;
+
+     }
+
+     /**
+     * Get custom parameter
+     *
+     * @return value
+     */
+
+    function get_custom_paremeter ($param) {
+
+        $this->__test_config_initialized();
+
+        return (    isset($this->database_config['conn_schema']['custom_parameters']) 
+                and isset($this->database_config['conn_schema']['custom_parameters'][$param]) ? $this->database_config['conn_schema']['custom_parameters'][$param] : null);
+    }
 
     /**
      * Get list of SQL's executed
@@ -3171,12 +3789,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function print_debug () {
 
-        if ($this->debug !== false) {
+        if ($this->debug !== false and !empty($this->SQL_list)) {
 
-            $s = "\n\n[SLYR_Updater] List of SQL's:\n".print_r($this->SQL_list, 1)."\r\n";
+            $s = "\n\n[SLYR_Updater] List of SQL's at ".date('Y-m-d H:i:s').
+                 ' ('.sprintf("%05.2f", (memory_get_usage(true) / 1024) / 1024)."MBytes RAM used):\n".
+                 print_r($this->SQL_list, 1)."\r\n";
 
-            if ($this->debug == 'file') { file_put_contents($this->get_path_log_debug().$this->debug_file_prefix.date('_Y-m-d_H-i').'.txt', $s, FILE_APPEND); }
-            else                        { echo $s; }
+            if ($this->debug === 'file')     { file_put_contents($this->debbug_file_name, $s, FILE_APPEND); }
+            else if ($this->debug !== 'var') { echo $s; flush(); ob_flush(); }
 
             $this->SQL_list = [];
 
@@ -3184,6 +3804,23 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         }
 
         return '';
+    }
+
+    /**
+     * Add trace to debbug
+     *
+     */
+
+    private function __add_to_debug ($trace) {
+
+        if ($this->debug !== false) {
+
+            $this->SQL_list[] = $trace;
+
+            if (count($this->SQL_list) > 500) $this->print_debug();
+        }
+
+        return $trace;
     }
 
     /**
@@ -3206,9 +3843,20 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      */
 
-    public function set_path_log_debug ($path) {
+    public function set_path_log_debug ($path = '') {
 
-        $this->debug_file_path = $path;
+        $this->debug_file_path  = $path;
+        $this->debbug_file_name = $this->get_path_log_debug().$this->debug_file_prefix.date('_Y-m-d_H-i').'.log';
+    }
+
+    /**
+     * Get path and filename to save the logs
+     *
+     */
+
+     public function get_filename_log_debug () {
+
+        return $this->debbug_file_name;
     }
 
     /**
@@ -3254,7 +3902,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      */
      public function __trigger_error ($message, $errnum) {
 
-         if ($errnum == 104) $this->SQL_list[] = "ERROR $errnum: $message";
+         if ($errnum == 104) $this->__add_to_debug("ERROR $errnum: $message");
           
          parent::__trigger_error($message, $errnum);
      }

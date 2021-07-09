@@ -69,5 +69,5 @@
 
 		// Printem el debug
 
-        $SLupdate->print_debbug();
+        $SLupdate->print_debug();
 	}

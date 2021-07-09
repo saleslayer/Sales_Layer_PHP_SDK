@@ -9,15 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2020-03-10
+ * @modified 2021-07-05
  *
- * @version 1.31
+ * @version 1.35
  */
- 
 class SalesLayer_Conn 
 {
 
-    public $version_class = '1.31';
+    public $version_class = '1.34';
 
     public $url = 'api.saleslayer.com';
 
@@ -41,6 +40,8 @@ class SalesLayer_Conn
     public $response_api_version;
     public $response_time;
     public $response_action;
+    public $response_headings;
+    public $response_custom_parameters;
     public $response_tables_info;
     public $response_tables_data;
 
@@ -57,11 +58,11 @@ class SalesLayer_Conn
     public $response_input_errors;
     public $response_input_results;
 
-    public  $response_input_traking          = [];
-    public  $response_input_traking_status   = '';
-    public  $response_input_traking_percent  = 0;
-    public  $response_input_traking_message  = '';
-    private $resonpse_last_time_check        = 0; 
+    public  $response_input_tracking          = '';
+    public  $response_input_tracking_status   = '';
+    public  $response_input_tracking_percent  = 0;
+    public  $response_input_tracking_message  = '';
+    private $resonpse_last_time_check         = 0; 
 
     private $__codeConn  = null;
     private $__secretKey = null;
@@ -69,7 +70,6 @@ class SalesLayer_Conn
     
     protected $__group_multicategory                    = false;
     protected $__get_same_parent_variants_modifications = false;
-    protected $__get_parent_modifications               = false;
     protected $__get_parents_category_tree              = false;
 
     private $__error_list = [
@@ -151,7 +151,7 @@ class SalesLayer_Conn
             $get = '';
         }
 
-        $URL = 'http' . (($this->SSL) ? 's' : '') . '://' . $this->url . '?code=' . urlencode($this->__codeConn) . $get;
+        $URL = 'http'.($this->SSL ? 's' : '').'://'.$this->url.(strpos($this->url, '?') !== false ? '&' : '?').'code='.urlencode($this->__codeConn).$get;
 
         if ($last_update) {
             $URL .= '&last_update=' . (!is_numeric($last_update) ? strtotime($last_update) : $last_update);
@@ -164,9 +164,6 @@ class SalesLayer_Conn
         }
         if (false !== $this->__get_same_parent_variants_modifications) {
             $URL .= '&same_parent_variants=1';
-        }
-        if (false !== $this->__get_parent_modifications) {
-            $URL .= '&first_parent_level=1';
         }
         if (false !== $this->__get_parents_category_tree) {
             $URL .= '&parents_category_tree=1';
@@ -289,16 +286,6 @@ class SalesLayer_Conn
      *
      * @param bool $enable
      */
-    public function set_first_level_parent_modifications($enable)
-    {
-        $this->__get_parent_modifications = $enable;
-    }
-
-    /**
-     * Set value for getting modifications/deletions of first level parents.
-     *
-     * @param bool $enable
-     */
     public function set_parents_category_tree($enable)
     {
         $this->__get_parents_category_tree = $enable;
@@ -406,6 +393,8 @@ class SalesLayer_Conn
     {
         if ($this->response_next_page) {
 
+            $this->data_returned = null;
+
             $stat = $this->call($this->response_next_page);
 
             if ($stat) {
@@ -424,9 +413,9 @@ class SalesLayer_Conn
      *
      * @return integer
      */
-    public function get_next_page_count()
+    public function get_page_count()
     {
-        return ($this->response_next_count ? $this->response_next_count : 0);
+        return ($this->response_page_count ? $this->response_page_count : 0);
     }
 
     /**
@@ -434,9 +423,9 @@ class SalesLayer_Conn
      *
      * @return integer
      */
-     public function get_next_page_length()
+     public function get_page_length()
      {
-         return ($this->response_next_length ? $this->response_next_length : 0);
+         return ($this->response_page_length ? $this->response_page_length : 0);
      }
 
     /**
@@ -445,42 +434,48 @@ class SalesLayer_Conn
      * @param array $update_items items data to insert/update
      * @param array $delete_items items data to delete
      * @param bool  $compression  gzip compression transfer
+     * @param bool  $force_directly import directly (as of API 1.18)
+     * @param array $extra_params add special extra parameters
      *
      * @return response to API
      */
-    public function set_info($update_items = [], $delete_items = [], $compression = false, $force_directly = false)
+    public function set_info($update_items = [], $delete_items = [], $compression = false, $force_directly = false, $extra_params = [])
     {
         $params = [];
 
         if ($this->hasConnector()) {
             
-            if (is_array($update_items) && count($update_items)) {
+            if (is_array($update_items) && !empty($update_items)) {
                 
                 $params['input_data'] = [];
 
                 foreach ($update_items as $table => &$items) {
-                    if (is_array($items) && count($items)) {
-                        $params['input_data'][$table] = $items;
-                    } else if (is_string($items) && preg_match('/^https?:\/\//i', $items)) {
-                        $params['input_data'][$table] = $items;
-                    }
+                    if (!empty($items)) { $params['input_data'][$table] = $items; }
                 }
+                unset($items);
             }
 
-            if (is_array($delete_items) && count($delete_items)) {
+            if (is_array($delete_items) && !empty($delete_items)) {
                 
                 $params['delete_data'] = [];
 
                 foreach ($delete_items as $table => &$items) {
-                    if (is_array($items) && count($items)) {
-                        $params['delete_data'][$table] = $items;
-                    }
+                    if (is_array($items) && !empty($items)) { $params['delete_data'][$table] = $items; }
                 }
+                unset($items);
             }
 
-            unset($update_items, $delete_items, $items);
+            if (is_array($extra_params) && !empty($extra_params)) {
+          
+                foreach ($extra_params as $key => &$data) {
+                    if (!empty($data)) { $params[$key] = $data; }
+                }
+                unset($data);
+            }
+            
+            unset($update_items, $delete_items, $extra_params);
 
-            if (count($params)) {
+            if (!empty($params)) {
 
                 if ($force_directly) {
                     $params['input_data_directly'] = 1;
@@ -495,7 +490,9 @@ class SalesLayer_Conn
 
                 if ($stat && is_array($this->data_returned)) {
 
-                    return $this->__parsing_json_returned();
+                    $stat = $this->__parsing_json_returned();
+
+                    return (floatval($this->connect_API_version) > 1.17 ? $stat : $this->data_returned['input_response']);
                 }
             }
         }
@@ -545,7 +542,7 @@ class SalesLayer_Conn
      */
     public function get_input_errors()
     {
-        if ($this->response_input_status && is_array($this->response_input_errors) && count($this->response_input_errors)) {
+        if ($this->response_input_status && is_array($this->response_input_errors) && !empty($this->response_input_errors)) {
 
             return $this->response_input_errors;
         }
@@ -564,13 +561,13 @@ class SalesLayer_Conn
     }
 
     /**
-     * Check for data paging
+     * Check if have input tracking info
      *
      * @return bool
      */
-    public function have_input_traking()
+    public function have_input_tracking()
     {
-        return ($this->response_input_traking ? true : false);
+        return ($this->response_input_tracking ? true : false);
     }
  
     /**
@@ -579,11 +576,11 @@ class SalesLayer_Conn
      * @return array info
      */
 
-    public function check_input_traking()
+    public function check_input_tracking()
     {
-        if ($this->response_input_traking && time() > $this->resonpse_last_time_check) {
+        if ($this->response_input_tracking && time() > $this->resonpse_last_time_check) {
 
-            $stat = $this->call($this->response_input_traking);
+            $stat = $this->call($this->response_input_tracking);
 
             $this->resonpse_last_time_check = time();
 
@@ -592,28 +589,28 @@ class SalesLayer_Conn
                 $this->__clean_error();
                 $this->__parsing_json_returned();
 
-                if (!$this->response_input_traking_status) {
+                if (!$this->response_input_tracking_status) {
 
-                    $this->response_input_traking_status  = 'end';
-                    $this->response_input_traking_percent = 100;
-                    $this->response_input_traking_message = '';
+                    $this->response_input_tracking_status  = 'end';
+                    $this->response_input_tracking_percent = 100;
+                    $this->response_input_tracking_message = '';
                 }
 
                 return true;
             }
 
-            $this->response_input_traking_status  = 'error';
-            $this->response_input_traking_percent = 0;
-            $this->response_input_traking_message = '';
+            $this->response_input_tracking_status  = 'error';
+            $this->response_input_tracking_percent = 0;
+            $this->response_input_tracking_message = '';
 
-        } else if (   !$this->response_input_traking 
-                   &&  $this->response_input_traking_status != 'error' 
+        } else if (   !$this->response_input_tracking 
+                   &&  $this->response_input_tracking_status != 'error' 
                    && isset($this->data_returned['input_response'])
                    &&       $this->data_returned['input_response']['result'] == 2) {
 
-            $this->response_input_traking_status  = 'error';
-            $this->response_input_traking_percent = 0;
-            $this->response_input_traking_message = '';
+            $this->response_input_tracking_status  = 'error';
+            $this->response_input_tracking_percent = 0;
+            $this->response_input_tracking_message = '';
         }
 
         return false;
@@ -625,24 +622,24 @@ class SalesLayer_Conn
      * @return array info
      */
     
-    public function get_input_traking_status()
+    public function get_input_tracking_status()
     {
-        $this->check_input_traking();
+        $this->check_input_tracking();
 
-        return $this->response_input_traking_status;
+        return $this->response_input_tracking_status;
     }
 
     /**
-     * Get input traking percentage from API
+     * Get input tracking percentage from API
      *
      * @return array info
      */
     
-     public function get_input_traking_percent()
+     public function get_input_tracking_percent()
      {
-        $this->check_input_traking();
+        $this->check_input_tracking();
  
-        return $this->response_input_traking_percent;
+        return $this->response_input_tracking_percent;
      }
 
      /**
@@ -651,11 +648,11 @@ class SalesLayer_Conn
      * @return array info
      */
     
-     public function get_input_traking_message()
+     public function get_input_tracking_message()
      {
-        $this->check_input_traking();
+        $this->check_input_tracking();
  
-        return $this->response_input_traking_message;
+        return $this->response_input_tracking_message;
      }
 
     /**
@@ -669,7 +666,7 @@ class SalesLayer_Conn
      */
      public function call ($url, $params = []) {
 
-        if ($url and preg_match('/^https?:\/\/'.preg_quote($this->url, '/').'/i', $url)) {
+        if ($url and preg_match('/^https?:\/\/'.preg_quote(preg_replace('/^([^\/?]+[\/?]).*$/', '\\1', $this->url), '/').'/i', $url)) {
 
             $ch = curl_init($url);
 
@@ -687,7 +684,7 @@ class SalesLayer_Conn
                 curl_setopt($ch, CURLOPT_CAINFO,  $this->SSL_CACert);
             }
 
-            if (is_array($params) and count($params)) {
+            if (is_array($params) and !empty($params)) {
 
                 if (isset($params['compression']) && $params['compression']) {
                     curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
@@ -698,8 +695,6 @@ class SalesLayer_Conn
             }
 
             $response = curl_exec($ch);
-
-            curl_close($ch);
 
             if (false !== $response) {
 
@@ -715,6 +710,9 @@ class SalesLayer_Conn
             } else {
                 $this->__trigger_error('Error connection: '.curl_error($ch), 102);
             }
+            
+            curl_close($ch);
+
         } else {
             $this->__trigger_error('Incorrect URL call: '.$url, 100);
         }
@@ -739,7 +737,8 @@ class SalesLayer_Conn
       */
      private function __parsing_json_returned()
      {
-         if (null !== $this->data_returned) {
+
+        if (null !== $this->data_returned) {
  
             if (isset($this->data_returned['version'])) {
             
@@ -768,11 +767,21 @@ class SalesLayer_Conn
                 
                 $status = false;
 
+                if (isset($this->data_returned['schema']['headings'])) {
+                
+                    $this->response_headings = $this->data_returned['schema']['headings'];
+                }
+
+                if (isset($this->data_returned['schema']['custom_parameters'])) {
+                
+                    $this->response_custom_parameters = $this->data_returned['schema']['custom_parameters'];
+                }
+
                 if (isset($this->data_returned['data'])) {
 
                     if (      isset($this->data_returned['data_schema_info'])
                         && is_array($this->data_returned['data_schema_info'])
-                        &&    count($this->data_returned['data_schema_info'])) {
+                        &&   !empty($this->data_returned['data_schema_info'])) {
 
                         $this->response_tables_info = [];
 
@@ -781,7 +790,7 @@ class SalesLayer_Conn
                             foreach ($info as $field => $props) {
     
                                 $this->response_tables_info[$table]['fields'][$field] = [
-                                    'type'             => (('ID' == $field or substr($field, 0, 3) == 'ID_') ? 'key' : $props['type']),
+                                    'type'             => (('ID' == $field or substr($field, 0, 3) == 'ID_') ? ($props['type'] == 'list' ? 'multi-key' : 'key') : $props['type']),
                                     'sanitized'        => (isset($props['sanitized']) ? $props['sanitized'] : (isset($props['basename']) ? $props['basename'] : $field)),
                                     'has_multilingual' => ((isset($props['language_code']) and $props['language_code']) ? 1 : 0),
                                 ];
@@ -841,28 +850,26 @@ class SalesLayer_Conn
                     $this->response_table_deleted_ids  =
                     $this->response_files_list         = [];
 
-                    if ($this->data_returned['data']) {
+                    if ($this->data_returned['data'] && !empty($this->response_tables_info)) {
 
                         $tables = array_keys($this->response_tables_info);
 
                         foreach ($tables as $table) {
 
-                            $this->response_tables_data[$table]       = ['modified' => [], 'count_modified' => [], 'deleted' => [], 'count_deleted' => 0];
+                            $this->response_tables_data[$table]       = ['modified' => [], 'count_modified' => 0, 'deleted' => [], 'count_deleted' => 0];
                             $this->response_table_deleted_ids[$table] = [];
 
-
-                            if (isset($this->data_returned['data'][$table]) && is_array($this->data_returned['data'])) {
+                            if (isset($this->data_returned['data'][$table]) && is_array($this->data_returned['data'][$table])) {
 
                                 foreach ($this->data_returned['data'][$table] as &$fields) {
 
-                                    if (count($fields)) {
+                                    if (!empty($fields)) {
 
                                         if ('D' == $fields[0]) {
 
                                             $this->response_table_deleted_ids[$table][]      =
                                             $this->response_tables_data[$table]['deleted'][] = $fields[1];
                                             $this->response_tables_data[$table]['count_deleted'] ++;
-                                            $this->response_tables_info[$table]['count_deleted'] ++;
 
                                         } else {
 
@@ -911,7 +918,6 @@ class SalesLayer_Conn
 
                                             $this->response_tables_data[$table]['modified'][] = $data;
                                             $this->response_tables_data[$table]['count_modified'] ++;
-                                            $this->response_tables_info[$table]['count_modified'] ++;
                                         }
                                     }
                                 }
@@ -924,7 +930,7 @@ class SalesLayer_Conn
                         $this->response_waiting_files = $this->data_returned['waiting'];
                     }
     
-                    if (isset($this->data_returned['next_page']) && $this->data_returned['next_page']) {
+                    if (isset($this->data_returned['next_page'])) {
 
                         $this->response_next_page   = $this->data_returned['next_page'];
                         $this->response_page_count  = $this->data_returned['page_count'];
@@ -942,13 +948,13 @@ class SalesLayer_Conn
 
                 if (isset($this->data_returned['input_response'])) {
 
-                    if (   isset($this->data_returned['input_response']['status_traking'])
-                        &&       $this->data_returned['input_response']['status_traking']) {
+                    if (   isset($this->data_returned['input_response']['status_tracking'])
+                        &&       $this->data_returned['input_response']['status_tracking']) {
 
-                        $this->response_input_traking = $this->data_returned['input_response']['status_traking'];
+                        $this->response_input_tracking = $this->data_returned['input_response']['status_tracking'];
                     }
 
-                    if ($this->data_returned['input_response']['result']) {
+                    if (isset($this->data_returned['input_response'])) {
 
                         $this->response_input_status  = $this->data_returned['input_response']['result'];
                         $this->response_input_errors  = (isset($this->data_returned['input_response']['error']) ? $this->data_returned['input_response']['error']  : '');
@@ -965,11 +971,18 @@ class SalesLayer_Conn
                 
                 if (isset($this->data_returned['input_percent_completion'])) {
 
-                    $this->response_input_traking_status  = $this->data_returned['input_status'];
-                    $this->response_input_traking_percent = $this->data_returned['input_percent_completion'];
-                    $this->response_input_traking_message = $this->data_returned['input_action_message'];
+                    $this->response_input_tracking_status  = $this->data_returned['input_status'];
+                    $this->response_input_tracking_percent = $this->data_returned['input_percent_completion'];
+                    $this->response_input_tracking_message = $this->data_returned['input_action_message'];
 
                     $status = true;
+                }
+
+                if (empty($this->response_input_tracking) and empty($this->response_input_tracking_status)) {
+
+                    $this->response_input_tracking_status  = 'end';
+                    $this->response_input_tracking_percent = 100;
+                    $this->response_input_tracking_message = '';
                 }
 
                 return $status;
@@ -987,7 +1000,7 @@ class SalesLayer_Conn
      */
     public function __trigger_error($message, $errnum)
     {
-        if (0 === $this->response_error) {
+        if (empty($this->response_error)) {
             $this->response_error         = $errnum;
             $this->response_error_message = $message;
         }
@@ -1305,7 +1318,7 @@ class SalesLayer_Conn
      */
     public function get_response_offline_file()
     {
-        if (is_array($this->data_returned['output']['offline_files']) && count($this->data_returned['output']['offline_files'])) {
+        if (is_array($this->data_returned['output']['offline_files']) && !empty($this->data_returned['output']['offline_files'])) {
             return $this->data_returned['output']['offline_files'];
         }
 
@@ -1333,7 +1346,7 @@ class SalesLayer_Conn
      */
     public function get_response_waiting_files()
     {
-        if (is_array($this->response_waiting_files) && count($this->response_waiting_files)) {
+        if (is_array($this->response_waiting_files) && !empty($this->response_waiting_files)) {
             return $this->response_waiting_files;
         }
 
@@ -1363,12 +1376,12 @@ class SalesLayer_Conn
 
                 if (isset($this->response_tables_info[$table])
                     and is_array($this->response_tables_info[$table]['fields'])
-                    and count($this->response_tables_info[$table]['fields'])) {
+                    and !empty($this->response_tables_info[$table]['fields'])) {
                     foreach ($this->response_tables_info[$table]['fields'] as $field => &$info) {
                         if (!in_array($field, ['ID', 'ID_PARENT'])) {
                             $field_name = (isset($info['basename']) ? $info['basename'] : $field);
 
-                            if (isset($info['titles']) and count($info['titles'])) {
+                            if (isset($info['titles']) and !empty($info['titles'])) {
                                 $titles[$table][$field_name] = $info['titles'];
                             } else {
                                 if (!isset($titles[$table][$field_name])) {
@@ -1421,12 +1434,12 @@ class SalesLayer_Conn
 
                 if (isset($this->response_tables_info[$table])
                     and is_array($this->response_tables_info[$table]['fields'])
-                    and count($this->response_tables_info[$table]['fields'])) {
+                    and !empty($this->response_tables_info[$table]['fields'])) {
                     foreach ($this->response_tables_info[$table]['fields'] as $field => &$info) {
                         if (!in_array($field, ['ID', 'ID_PARENT'])) {
                             if (isset($info['language_code'])) {
                                 if ($info['language_code'] == $language) {
-                                    if (isset($info['titles']) and count($info['titles'])) {
+                                    if (isset($info['titles']) and !empty($info['titles'])) {
                                         if (isset($info['titles'][$language])) {
                                             $titles[$table][$field] = $info['titles'][$language];
                                         } elseif (isset($info['titles'][$default_language])) {
@@ -1451,5 +1464,82 @@ class SalesLayer_Conn
         }
 
         return $titles;
+    }
+
+    /**
+     * Get headings of fields in certain language.
+     *
+     * @param string $language (ISO 639-1)
+     *
+     * @return array
+     */
+
+    public function get_headings ($language, $table = null) {
+
+        $headings         = [];
+        $default_language = $this->data_returned['schema']['default_language'];
+
+        if ($table) {
+
+            if (isset($this->response_headings[$table])) {
+
+                foreach ($this->response_headings[$table] as $info) {
+
+                    $title = $info['title'];
+
+                    if (isset($info['titles'])) {
+                        
+                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
+                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                    }
+
+                    $headings[] = [
+
+                        'title'          => $title,
+                        'position'       => $info['position'],
+                        'field_previous' => $info['field_previous']
+                    ];
+                }
+            }
+
+        } else {
+
+            foreach ($this->response_headings as $table =>& $titles) {
+
+                $headings[$table] = [];
+
+                foreach ($titles as $info) {
+
+                    $title = $info['title'];
+
+                    if (isset($info['titles'])) {
+                        
+                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
+                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                    }
+
+                    $headings[$table][] = [
+
+                        'title'          => $title,
+                        'position'       => $info['position'],
+                        'field_previous' => $info['field_previous']
+                    ];
+                }
+            }
+            unset($titles);
+        }
+        
+        return $headings;
+    } 
+
+    /**
+     * Get custom parameter.
+     *
+     * @return value
+     */
+
+    function get_custom_paremeter ($param) {
+        
+        return (isset($this->response_custom_parameters[$param]) ? $this->response_custom_parameters[$param] : null);
     }
 }
