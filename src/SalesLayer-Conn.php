@@ -9,9 +9,9 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2020-09-08
+ * @modified 2021-07-05
  *
- * @version 1.34
+ * @version 1.35
  */
 class SalesLayer_Conn 
 {
@@ -40,6 +40,8 @@ class SalesLayer_Conn
     public $response_api_version;
     public $response_time;
     public $response_action;
+    public $response_headings;
+    public $response_custom_parameters;
     public $response_tables_info;
     public $response_tables_data;
 
@@ -149,7 +151,7 @@ class SalesLayer_Conn
             $get = '';
         }
 
-        $URL = 'http' . (($this->SSL) ? 's' : '') . '://' . $this->url . (strpos($this->url, '?') !== false ? '&' : '?').'code=' . urlencode($this->__codeConn) . $get;
+        $URL = 'http'.($this->SSL ? 's' : '').'://'.$this->url.(strpos($this->url, '?') !== false ? '&' : '?').'code='.urlencode($this->__codeConn).$get;
 
         if ($last_update) {
             $URL .= '&last_update=' . (!is_numeric($last_update) ? strtotime($last_update) : $last_update);
@@ -765,6 +767,16 @@ class SalesLayer_Conn
                 
                 $status = false;
 
+                if (isset($this->data_returned['schema']['headings'])) {
+                
+                    $this->response_headings = $this->data_returned['schema']['headings'];
+                }
+
+                if (isset($this->data_returned['schema']['custom_parameters'])) {
+                
+                    $this->response_custom_parameters = $this->data_returned['schema']['custom_parameters'];
+                }
+
                 if (isset($this->data_returned['data'])) {
 
                     if (      isset($this->data_returned['data_schema_info'])
@@ -988,7 +1000,7 @@ class SalesLayer_Conn
      */
     public function __trigger_error($message, $errnum)
     {
-        if (0 === $this->response_error) {
+        if (empty($this->response_error)) {
             $this->response_error         = $errnum;
             $this->response_error_message = $message;
         }
@@ -1452,5 +1464,82 @@ class SalesLayer_Conn
         }
 
         return $titles;
+    }
+
+    /**
+     * Get headings of fields in certain language.
+     *
+     * @param string $language (ISO 639-1)
+     *
+     * @return array
+     */
+
+    public function get_headings ($language, $table = null) {
+
+        $headings         = [];
+        $default_language = $this->data_returned['schema']['default_language'];
+
+        if ($table) {
+
+            if (isset($this->response_headings[$table])) {
+
+                foreach ($this->response_headings[$table] as $info) {
+
+                    $title = $info['title'];
+
+                    if (isset($info['titles'])) {
+                        
+                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
+                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                    }
+
+                    $headings[] = [
+
+                        'title'          => $title,
+                        'position'       => $info['position'],
+                        'field_previous' => $info['field_previous']
+                    ];
+                }
+            }
+
+        } else {
+
+            foreach ($this->response_headings as $table =>& $titles) {
+
+                $headings[$table] = [];
+
+                foreach ($titles as $info) {
+
+                    $title = $info['title'];
+
+                    if (isset($info['titles'])) {
+                        
+                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
+                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                    }
+
+                    $headings[$table][] = [
+
+                        'title'          => $title,
+                        'position'       => $info['position'],
+                        'field_previous' => $info['field_previous']
+                    ];
+                }
+            }
+            unset($titles);
+        }
+        
+        return $headings;
+    } 
+
+    /**
+     * Get custom parameter.
+     *
+     * @return value
+     */
+
+    function get_custom_paremeter ($param) {
+        
+        return (isset($this->response_custom_parameters[$param]) ? $this->response_custom_parameters[$param] : null);
     }
 }
