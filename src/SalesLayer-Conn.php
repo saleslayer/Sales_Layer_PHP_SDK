@@ -402,8 +402,14 @@ class SalesLayer_Conn
                 $this->__clean_error();
 
                 return $this->__parsing_json_returned();
+
+            } else {
+
+                $this->response_next_page = ''; 
             }
         }
+
+        $this->data_returned = [];
 
         return false;
     }
@@ -743,9 +749,16 @@ class SalesLayer_Conn
       */
      private function __parsing_json_returned()
      {
-        $this->response_next_page   = '';
-        $this->response_page_count  =
-        $this->response_page_length = 0;
+        $this->response_api_version        =
+        $this->response_time               =
+        $this->response_action             = null;
+        $this->response_tables_data        =
+        $this->response_table_modified_ids =
+        $this->response_table_deleted_ids  =
+        $this->response_files_list         = [];
+        $this->response_next_page          = '';
+        $this->response_page_count         =
+        $this->response_page_length        = 0;
 
         if (null !== $this->data_returned) {
  
@@ -853,11 +866,6 @@ class SalesLayer_Conn
                             $this->response_tables_info[$table]['count_deleted']   = 0;
                         }
                     }
-
-                    $this->response_tables_data        =
-                    $this->response_table_modified_ids =
-                    $this->response_table_deleted_ids  =
-                    $this->response_files_list         = [];
 
                     if ($this->data_returned['data'] && !empty($this->response_tables_info)) {
 
