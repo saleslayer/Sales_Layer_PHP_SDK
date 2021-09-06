@@ -16,10 +16,12 @@ jobs:
 
     steps:
       - name: Setup sonarqube
+
         uses: warchant/setup-sonar-scanner@master
 
       - name: 'Checkout repository on branch: ${{ github.REF }}'
         uses: actions/checkout@master
+
         with:
           ref: ${{ github.HEAD_REF }}
 

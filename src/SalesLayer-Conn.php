@@ -9,7 +9,7 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2021-08-10
+ * @modified 2021-09-06
  *
  * @version 1.36
  */
@@ -584,7 +584,7 @@ class SalesLayer_Conn
 
     public function check_input_tracking()
     {
-        if ($this->response_input_tracking && time() > $this->resonpse_last_time_check) {
+        if (!empty($this->response_input_tracking) && time() > $this->resonpse_last_time_check) {
 
             $stat = $this->call($this->response_input_tracking);
 
@@ -609,8 +609,8 @@ class SalesLayer_Conn
             $this->response_input_tracking_percent = 0;
             $this->response_input_tracking_message = '';
 
-        } else if (   !$this->response_input_tracking 
-                   &&  $this->response_input_tracking_status != 'error' 
+        } else if (   empty($this->response_input_tracking)
+                   &&       $this->response_input_tracking_status != 'error' 
                    && isset($this->data_returned['input_response'])
                    &&       $this->data_returned['input_response']['result'] == 2) {
 
@@ -743,6 +743,9 @@ class SalesLayer_Conn
       */
      private function __parsing_json_returned()
      {
+        $this->response_next_page   = '';
+        $this->response_page_count  =
+        $this->response_page_length = 0;
 
         if (null !== $this->data_returned) {
  
@@ -938,18 +941,13 @@ class SalesLayer_Conn
     
                     if (isset($this->data_returned['next_page'])) {
 
-                        $this->response_next_page   = $this->data_returned['next_page'];
-                        $this->response_page_count  = $this->data_returned['page_count'];
-                        $this->response_page_length = $this->data_returned['page_length'];
-                        
-                    } else {
-
-                        $this->response_next_page   = '';
-                        $this->response_page_count  =
-                        $this->response_page_length = 0;
+                        $this->response_next_page  = $this->data_returned['next_page'];
+                        $this->response_page_count = $this->data_returned['page_count'];
                     }
 
-                    $status =  true;
+                    $this->response_page_length = (isset($this->data_returned['page_length']) ? $this->data_returned['page_length'] : 0);
+
+                    $status = true;
                 }
 
                 if (isset($this->data_returned['input_response'])) {
