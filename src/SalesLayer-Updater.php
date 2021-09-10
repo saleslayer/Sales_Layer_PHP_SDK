@@ -2789,28 +2789,35 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 $this_db_table      = $this->__get_table_for_field($db_field,      $join_table);
                                 $this_db_table_base = $this->__get_table_for_field($db_field_base, $join_table);
 
-                                $select_field = "IF(`$this_db_table`.`$db_field`!=''".($is_file ? " and `$this_db_table`.`$db_field`!='[]'" : '').
-                                                ", `$this_db_table`.`$db_field`, `$this_db_table_base`.`$db_field_base`)";
+                                if ($this_db_table and $this_db_table_base) {
 
-                                if (!isset($tables_db[$this_db_table])) {
-                                    
-                                    $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
-                                }
+                                    $select_field = "IF(`$this_db_table`.`$db_field`!=''".($is_file ? " and `$this_db_table`.`$db_field`!='[]'" : '').
+                                                    ", `$this_db_table`.`$db_field`, `$this_db_table_base`.`$db_field_base`)";
 
-                                if ($this_db_table != $this_db_table_base && !isset($tables_db[$this_db_table_base])) {
-                                    
-                                    $tables_db[$this_db_table_base] = $this->__get_field_id_for_table_join($this_db_table_base, $join_field_id);
+                                    if (!isset($tables_db[$this_db_table])) {
+                                        
+                                        $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
+                                    }
+
+                                    if ($this_db_table != $this_db_table_base && !isset($tables_db[$this_db_table_base])) {
+                                        
+                                        $tables_db[$this_db_table_base] = $this->__get_field_id_for_table_join($this_db_table_base, $join_field_id);
+                                    }
                                 }
 
                             } else {
 
                                 $db_field      = $field.($multi ? '_'.$language : '');
                                 $this_db_table = $this->__get_table_for_field($db_field, $join_table);
-                                $select_field  = "`$this_db_table`.`$db_field`";
 
-                                if (!isset($tables_db[$this_db_table])) {
-                                    
-                                    $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
+                                if ($this_db_table) {
+
+                                    $select_field  = "`$this_db_table`.`$db_field`";
+
+                                    if (!isset($tables_db[$this_db_table])) {
+                                        
+                                        $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
+                                    }
                                 }
                             }
 
@@ -2904,11 +2911,15 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                     if (strtoupper($ord) != 'ASC') { $ord = 'DESC'; }
 
                                     $this_db_table = $this->__get_table_for_field($db_field, $join_table);
-                                    $sql_order    .= ($sql_order ? ', ' : '')."`$this_db_table`.`$db_field` $ord";
 
-                                    if (!isset($tables_db[$this_db_table])) {
-                                        
-                                        $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
+                                    if ($this_db_table) {
+
+                                        $sql_order .= ($sql_order ? ', ' : '')."`$this_db_table`.`$db_field` $ord";
+
+                                        if (!isset($tables_db[$this_db_table])) {
+                                            
+                                            $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $join_field_id);
+                                        }
                                     }
                                 }
                             }
@@ -2929,11 +2940,15 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         if ($db_field) { 
                             
                             $this_db_table = $this->__get_table_for_field($db_field, $table);
-                            $sql_order     = "`$this_db_table`.`$db_field` ASC";
-                        
-                            if (!isset($tables_db[$this_db_table])) {
-                                
-                                $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $table_joins[$table]);
+
+                            if ($this_db_table) {
+
+                                $sql_order = "`$this_db_table`.`$db_field` ASC";
+                            
+                                if (!isset($tables_db[$this_db_table])) {
+                                    
+                                    $tables_db[$this_db_table] = $this->__get_field_id_for_table_join($this_db_table, $table_joins[$table]);
+                                }
                             }
                         }   
                     }
@@ -3345,10 +3360,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                     if ($db_field) { 
                                         
                                         $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                        $fgroup  .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
 
-                                        if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
-                                    
+                                        if ($this_db_table) {
+
+                                            $fgroup .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
+
+                                            if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                                        }
+
                                         if (   $force_default_language 
                                             && $language != $base_language
                                             && isset($schema[$field]['has_multilingual'])
@@ -3356,9 +3375,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                             && $db_field = $this->__get_real_field($field, $table, $base_language)) {
 
                                             $this_db_table = $this->__get_table_for_field($db_field, $table);
-                                            $fgroup  .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
 
-                                            if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                                            if ($this_db_table) {
+
+                                                $fgroup .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
+
+                                                if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                                            }
                                         }
                                     }
                                 }
@@ -3380,9 +3403,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                                                 $param['condition']."'".addslashes($param['value'])."'");
 
                         $this_db_table = $this->__get_table_for_field($db_field, $table);
-                        $clause        = "(`$this_db_table`.`$db_field`$filter".($param['strict'] ? " and BINARY `$this_db_table`.`$db_field`$filter" : '').')';
 
-                        if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                        if ($this_db_table) {
+
+                            $clause = "(`$this_db_table`.`$db_field`$filter".($param['strict'] ? " and BINARY `$this_db_table`.`$db_field`$filter" : '').')';
+
+                            if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                        }
 
                         if (   $force_default_language
                             && $language != $base_language
@@ -3391,9 +3418,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                             && $db_field = $this->__get_real_field($param['field'], $table, $base_language)) {
 
                             $this_db_table = $this->__get_table_for_field($db_field, $table);
-                            $clause        = "($clause or (`$this_db_table`.`$db_field`$filter".($param['strict'] ? " and BINARY `$this_db_table`.`$db_field`$filter" : '').'))';
 
-                            if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                            if ($this_db_table) {
+
+                                
+                                $clause = "($clause or (`$this_db_table`.`$db_field`$filter".($param['strict'] ? " and BINARY `$this_db_table`.`$db_field`$filter" : '').'))';
+
+                                if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
+                            }
                         }
                     }
 
@@ -3451,9 +3483,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     if ($db_field) {
 
-                        $this_db_table    = $this->__get_table_for_field($db_field, $table);
-                        $this_db_tables[] = $this_db_table;
-                        $sql_group       .= ($sql_group ? ', ' : '')."BINARY `$this_db_table`.`$db_field`";
+                        $this_db_table = $this->__get_table_for_field($db_field, $table);
+
+                        if ($this_db_table) {
+
+                            $this_db_tables[] = $this_db_table;
+                            $sql_group       .= ($sql_group ? ', ' : '')."BINARY `$this_db_table`.`$db_field`";
+                        }
                     }
 
                     unset($group[$k]);
@@ -3512,7 +3548,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 return $this->column_tables[$sly_table][$db_field];
             }
 
-            return $table;
+            return '';
         }
         return '';
 
