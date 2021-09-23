@@ -1,6 +1,9 @@
 {
     "name": "saleslayer/saleslayer-php-sdk",
+    "type": "library",
     "description": "SalesLayer PHP SDK",
+    "homepage": "https://github.com/saleslayer/Sales_Layer_PHP_SDK",
+    "license": "MIT",
     "require": {
         "php": ">=5.0.0"
     },
