@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2021-07-05
- * @version 1.27
+ * @modified 2021-11-17
+ * @version 1.25
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        require_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version    = '1.24';
+    public  $updater_version    = '1.25';
 
     public  $database           = null;
     public  $username           = null;
@@ -2491,11 +2491,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                     if ($multi_db_table) {
                                         
-                                        $tables .= ($tables ? ' left join `'.$multi_db_table.'` using(`'.$field_id.'`)' : '`'.$multi_db_table.'`');
+                                        $tables .= ($tables ? " left join `$multi_db_table` on (`$multi_db_table`.`$field_id`=`$sly_table`.`$field_id`)" 
+                                                              : 
+                                                              "`$multi_db_table`");
                                     }
                                 }
 
-                                $SQL = "update $tables set $db_fields where `$field_id`='$id'$limit;";
+                                $SQL = "update $tables set $db_fields where `$sly_table`.`$field_id`='$id'$limit;";
 
                                 if (!$this->DB->execute($this->__add_to_debug($SQL))) $ok = false;
 
@@ -2959,7 +2961,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         if ($this_db_table) {
                             
-                            $string_tables .= ($string_tables ? " left join `$this_db_table` using(`$this_db_join_id`)" : "`$this_db_table`");
+                            $string_tables .= ($string_tables ? " left join `$this_db_table` on (`$this_db_table`.`$this_db_join_id`=`$sly_table`.`$this_db_join_id`)" 
+                                                                : 
+                                                                "`$this_db_table`");
                         }
                     }
 
@@ -2989,7 +2993,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         $res = $this->DB->execute($this->__add_to_debug($SQL));
 
-                        if ($res === false) {
+                        if (!is_array($res)) {
 
                             if ($this->DB->error) $this->__trigger_error($this->DB->error." ($SQL)", 104);
 
@@ -3150,7 +3154,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         if ($join_table != $sly_table) {
 
-                            $SQL .= " left join `$join_table` using(`{$config[0]}`)";
+                            $SQL .= " left join `$join_table` on (`$join_table`.`{$config[0]}`=`$sly_table`.`{$config[0]}`)";
                         }
                     }
                 }
@@ -3220,13 +3224,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if ($this_db_table != $db_table and $this_db_table != $sly_table and $this_db_config[0] == $db_id) {
 
-                $SQL .= ($SQL ? ' or ' : '')."`{$this_db_config[0]}` IN (select DISTINCT `{$this_db_config[0]}` from `$this_db_table`";
+                $SQL .= ($SQL ? ' or ' : '')."`$sly_table`.`{$this_db_config[0]}` IN (select DISTINCT `{$this_db_config[0]}` from `$this_db_table`";
 
                 if (  !empty($this_db_config[1])) {
             
                     foreach ($this_db_config[1] as $join_table) {
 
-                        $SQL .= " left join `$join_table` using(`{$this_db_config[0]}`)";
+                        $SQL .= " left join `$join_table` on (`$join_table`.`{$this_db_config[0]}`=`$sly_table`.`{$this_db_config[0]}`)";
                     }
                 }
 
