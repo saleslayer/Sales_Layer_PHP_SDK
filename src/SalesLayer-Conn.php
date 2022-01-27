@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2020-09-08
+ * @modified 2021-01-27
  *
- * @version 1.34
+ * @version 1.35
  */
 class SalesLayer_Conn 
 {
 
-    public $version_class = '1.34';
+    public $version_class = '1.35';
 
     public $url = 'api.saleslayer.com';
 
@@ -400,8 +400,14 @@ class SalesLayer_Conn
                 $this->__clean_error();
 
                 return $this->__parsing_json_returned();
+
+            } else {
+
+                $this->response_next_page = ''; 
             }
         }
+
+        $this->data_returned = [];
 
         return false;
     }
@@ -576,7 +582,7 @@ class SalesLayer_Conn
 
     public function check_input_tracking()
     {
-        if ($this->response_input_tracking && time() > $this->resonpse_last_time_check) {
+        if (!empty($this->response_input_tracking) && time() > $this->resonpse_last_time_check) {
 
             $stat = $this->call($this->response_input_tracking);
 
@@ -601,8 +607,8 @@ class SalesLayer_Conn
             $this->response_input_tracking_percent = 0;
             $this->response_input_tracking_message = '';
 
-        } else if (   !$this->response_input_tracking 
-                   &&  $this->response_input_tracking_status != 'error' 
+        } else if (   empty($this->response_input_tracking)
+                   &&       $this->response_input_tracking_status != 'error' 
                    && isset($this->data_returned['input_response'])
                    &&       $this->data_returned['input_response']['result'] == 2) {
 
@@ -735,6 +741,16 @@ class SalesLayer_Conn
       */
      private function __parsing_json_returned()
      {
+        $this->response_api_version        =
+        $this->response_time               =
+        $this->response_action             = null;
+        $this->response_tables_data        =
+        $this->response_table_modified_ids =
+        $this->response_table_deleted_ids  =
+        $this->response_files_list         = [];
+        $this->response_next_page          = '';
+        $this->response_page_count         =
+        $this->response_page_length        = 0;
 
         if (null !== $this->data_returned) {
  
@@ -833,11 +849,6 @@ class SalesLayer_Conn
                         }
                     }
 
-                    $this->response_tables_data        =
-                    $this->response_table_modified_ids =
-                    $this->response_table_deleted_ids  =
-                    $this->response_files_list         = [];
-
                     if ($this->data_returned['data'] && !empty($this->response_tables_info)) {
 
                         $tables = array_keys($this->response_tables_info);
@@ -920,18 +931,13 @@ class SalesLayer_Conn
     
                     if (isset($this->data_returned['next_page'])) {
 
-                        $this->response_next_page   = $this->data_returned['next_page'];
-                        $this->response_page_count  = $this->data_returned['page_count'];
-                        $this->response_page_length = $this->data_returned['page_length'];
-                        
-                    } else {
-
-                        $this->response_next_page   = '';
-                        $this->response_page_count  =
-                        $this->response_page_length = 0;
+                        $this->response_next_page  = $this->data_returned['next_page'];
+                        $this->response_page_count = $this->data_returned['page_count'];
                     }
 
-                    $status =  true;
+                    $this->response_page_length = (isset($this->data_returned['page_length']) ? $this->data_returned['page_length'] : 0);
+
+                    $status = true;
                 }
 
                 if (isset($this->data_returned['input_response'])) {
@@ -988,7 +994,7 @@ class SalesLayer_Conn
      */
     public function __trigger_error($message, $errnum)
     {
-        if (0 === $this->response_error) {
+        if (empty($this->response_error)) {
             $this->response_error         = $errnum;
             $this->response_error_message = $message;
         }
