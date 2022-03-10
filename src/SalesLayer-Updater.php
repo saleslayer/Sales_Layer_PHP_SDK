@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2021-11-17
- * @version 1.25
+ * @modified 2022-03-10
+ * @version 1.26
  *
  */
 
@@ -43,6 +43,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     public  $debug              = false; // <-- false / true / 'file'
     public  $debug_file_path    = null;
     public  $debug_file_prefix  = '_log_updater';
+    public  $debug_max_list     = 500;
     public  $test_update_stats  = null;
 
     private $database_tables    = null;
@@ -54,6 +55,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     private $mysql_version      = null;
     private $update_pagination  = null;
     private $database_init_date = null;
+    private $SQL_errors         = [];
 
     private $database_field_types = [
 
@@ -3835,8 +3837,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                  ' ('.sprintf("%05.2f", (memory_get_usage(true) / 1024) / 1024)."MBytes RAM used):\n".
                  print_r($this->SQL_list, 1)."\r\n";
 
-            if ($this->debug === 'file')     { file_put_contents($this->debbug_file_name, $s, FILE_APPEND); }
-            else if ($this->debug !== 'var') { echo $s; flush(); ob_flush(); }
+            if      ($this->debug === 'file') { file_put_contents($this->debbug_file_name, $s, FILE_APPEND); }
+            else if ($this->debug !== 'var')  { echo $s; flush(); ob_flush(); }
 
             $this->SQL_list = [];
 
@@ -3851,17 +3853,56 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      *
      */
 
-    private function __add_to_debug ($trace) {
+    private function __add_to_debug ($trace, $is_error = false) {
 
         if ($this->debug !== false) {
 
             $this->SQL_list[] = $trace;
 
-            if (count($this->SQL_list) > 500) $this->print_debug();
+            if ($is_error) { $this->SQL_errors[] = key($this->SQL_list); }
+
+            if ($this->debug_max_list and count($this->SQL_list) > $this->debug_max_list) { $this->print_debug(); }
         }
 
         return $trace;
     }
+
+    /**
+     * Get number of SQL errors
+     *
+     */
+
+     public function get_SQL_errors_num () {
+
+        return count($this->SQL_errors);
+     }
+
+     /**
+     * Get list of SQL errors
+     *
+     */
+
+    public function get_SQL_errors_list () {
+
+        $list = [];
+
+        if (!empty($this->SQL_errors)) {
+
+            if (!empty($this->SQL_list)) {
+
+                foreach ($this->SQL_errors as $key) {
+
+                    $list[] = $this->SQL_list[$key];
+                }
+                
+            } else {
+
+                return $this->SQL_errors;
+            }
+        }
+
+        return $list;
+     }
 
     /**
      * Get path to save the logs
@@ -3942,8 +3983,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      */
      public function __trigger_error ($message, $errnum) {
 
-         if ($errnum == 104) $this->__add_to_debug("ERROR $errnum: $message");
-          
+         if ($errnum == 104) { $this->__add_to_debug("ERROR $errnum: $message", true); }
+
          parent::__trigger_error($message, $errnum);
      }
 
@@ -3956,7 +3997,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         $this->response_error    = false;
         $this->database_config   = 
-        $this->list_connectors   = [];
+        $this->list_connectors   = 
+        $this->SQL_errors        = [];
         $this->database_tables   =
         $this->test_update_stats = null;
 
