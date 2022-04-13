@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2022-03-10
- * @version 1.26
+ * @modified 2022-04-13
+ * @version 1.27
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        require_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version    = '1.25';
+    public  $updater_version    = '1.27';
 
     public  $database           = null;
     public  $username           = null;
@@ -877,7 +877,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     }
 
     /**
-     * Define utf mode
+     * Get charset
      *
      * @return string
      */
@@ -889,6 +889,19 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         return (($ver === null || $ver < 5.0503 || $this->charset != 'utf8') ? $this->charset.' COLLATE '.$this->charset.'_general_ci'
                                                                                :
                                                                                'utf8mb4 COLLATE utf8mb4_unicode_ci');
+    }
+
+    /**
+     * Get collate
+     *
+     * @return string
+     */
+
+    private function __get_collate () {
+
+        $ver = $this->__get_mysql_version();
+
+        return (($ver === null || $ver < 5.0503 || $this->charset != 'utf8') ? $this->charset.'_general_ci' : 'utf8mb4_unicode_ci');
     }
 
     /**
@@ -3369,7 +3382,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                         if ($this_db_table) {
 
-                                            $fgroup .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
+                                            $fgroup .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'' COLLATE ". $this->__get_collate().')';
 
                                             if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
                                         }
@@ -3384,7 +3397,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                             if ($this_db_table) {
 
-                                                $fgroup .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'')";
+                                                $fgroup .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'' COLLATE ". $this->__get_collate().')';
 
                                                 if (!in_array($this_db_table, $tables_db)) $tables_db[] = $this_db_table;
                                             }
