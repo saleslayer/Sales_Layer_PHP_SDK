@@ -25,7 +25,7 @@ class SalesLayer_Conn
     public $SSL_Key    = null;
     public $SSL_CACert = null;
 
-    public $connect_API_version = '1.17';
+    public $connect_API_version = '1.18';
 
     public $connection_timeout     = 1800;  // 30 minutes * 60 seconds
     public $response_error         = 0;
