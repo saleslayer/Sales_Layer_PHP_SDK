@@ -44,7 +44,7 @@ class slyr_SQL {
                 return false;
             }
         } else {
-            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
+            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_SILENT);
         }
         return true;
     }
