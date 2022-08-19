@@ -1481,7 +1481,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $this->rel_multitables[$db_table] =
             $this->column_tables  [$db_table] = [];
 
-            $this->get_database_tables();
+            $this->get_database_tables($refresh);
 
             $expr = $this->get_table_match($db_table);
 
@@ -1538,7 +1538,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $this->table_columns   =
             $this->column_tables   =
             $this->database_fields =
-            $this->rel_multitables = [];    
+            $this->rel_multitables = [];
 
         } else {
 
@@ -1827,9 +1827,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             if ($this->DB->execute($this->add_to_debug($SQL))) {
                 
                 $db_table_base                           = preg_replace('/___[0-9]+$/', '', $db_table);
-                $this->database_tables[]                 = $db_table;
-                $this->table_columns  [$db_table_base]   = [];
-                $this->rel_multitables[$db_table_base][] = $db_table; 
+                $this->database_tables[]                 =
+                $this->rel_multitables[$db_table_base][] = $db_table;
+
+                if ($db_table == $db_table_base) { 
+
+                    $this->table_columns[$db_table_base] = [];
+                }
 
                 if ($db_table_base != $db_table) {
 
@@ -1919,15 +1923,25 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             if (!$this_db_table) {
 
-                                $count_multi_tables                      = count($this->rel_multitables[$sly_table]);
-                                $this_db_table                           = $sly_table.($count_multi_tables ? '___'.$count_multi_tables : '');
-                                $this->table_columns  [$this_db_table][] = $db_field;
-                                $this->rel_multitables[$sly_table]    [] = $this_db_table;
+                                $count = 0;
 
-                                $this->create_table($this_db_table, '`'.$key_field.'` bigint unsigned not null', false);
+                                do {
+
+                                    $this_db_table = $sly_table.($count ++ ? '___'.$count : '');
+
+                                } while (in_array($this_db_table, $this->rel_multitables[$sly_table]));
+
+                                if ($this->create_table($this_db_table, '`'.$key_field.'` bigint unsigned not null', false)) {
+
+                                    $this->table_columns[$this_db_table][] = $db_field;
+
+                                } else {
+
+                                    $this_db_table = '';
+                                }
                             }
 
-                            if (!isset($this->database_fields[$sly_table][$db_field]) || preg_match('/^CHANGE\s+/i', $mode)) {
+                            if ($this_db_table && (!isset($this->database_fields[$sly_table][$db_field]) || preg_match('/^CHANGE\s+/i', $mode))) {
 
                                 if (!isset($fields[$this_db_table])) $fields[$this_db_table] = '';
 
@@ -3176,7 +3190,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         $sub_table = array_shift($tables_db_group);
 
-                        if (!isset($tables_db[$sub_table])) { $tables_db[$sub_table]    = [$join_field_id, []]; }
+                        if (!isset($tables_db[$sub_table])) { $tables_db[$sub_table]    = [$join_field_id, $tables_db_group]; }
                         if (!empty($tables_db_where))       { $tables_db[$sub_table][1] = array_merge($tables_db[$sub_table][1], $tables_db_group); }
                     }
                 }
