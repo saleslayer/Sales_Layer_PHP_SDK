@@ -19,13 +19,13 @@ class slyr_SQL {
     private $database;
     private $dbLink;
 
-    function __construct ($dbn, $usr, $pwd, $host='localhost', $port=3306, $persist=false) {
+    function __construct ($dbn, $usr, $pwd, $host='localhost', $port=3306) {
 
         $this->database = $dbn;
         $this->username = $usr;
         $this->password = $pwd;
         $this->hostname = $host.':'.$port;
-        $this->Connect($persist);
+        $this->Connect();
     }
 
     function __destruct(){
@@ -33,14 +33,12 @@ class slyr_SQL {
         $this->closeConnection();
     }
 
-    private function Connect ($persist=false) {
+    private function Connect () {
 
         $this->CloseConnection();
-        $this->dbLink =($persist ? mysql_pconnect($this->hostname, $this->username, $this->password)
-                                   :
-                                   mysql_connect ($this->hostname, $this->username, $this->password));
+        $this->dbLink = mysqli_connect ($this->hostname, $this->username, $this->password);
         if (!$this->dbLink) {
-            $this->error = 'Could not connect to server: '.mysql_error($this->dbLink);
+            $this->error = 'Could not connect to server: '.mysqli_error($this->dbLink);
             return false;
         }
         if ($this->database && !$this->useDB()) return false;
@@ -49,8 +47,8 @@ class slyr_SQL {
 
     private function useDB () {
 
-        if(!mysql_select_db($this->database, $this->dbLink)){
-            $this->error = 'Cannot select database: '.mysql_error($this->dbLink);
+        if(!mysqli_select_db($this->database, $this->dbLink)){
+            $this->error = 'Cannot select database: '.mysqli_error($this->dbLink);
             return false;
         }
         return true;
@@ -58,13 +56,13 @@ class slyr_SQL {
 
     public function execute ($query) {
 
-        if ($this->result = mysql_query($query, $this->dbLink)){
-            $this->records  = (gettype($this->result) === 'resource' ? @mysql_num_rows($this->result): 0);
-            $this->affected = @mysql_affected_rows($this->dbLink);
+        if ($this->result = mysqli_query($query, $this->dbLink)){
+            $this->records  = (gettype($this->result) === 'resource' ? @mysqli_num_rows($this->result): 0);
+            $this->affected = @mysqli_affected_rows($this->dbLink);
             $this->error    = null; 
             return $this->arrayResults();
         } else {
-            $this->error = mysql_error($this->dbLink);
+            $this->error = mysqli_error($this->dbLink);
             return false;
         }
     }
@@ -72,12 +70,12 @@ class slyr_SQL {
     public function arrayResults () {
 
         $list = array();
-        if ($this->records) { while ($data = mysql_fetch_assoc($this->result)) $list[] = $data; }
+        if ($this->records) { while ($data = mysqli_fetch_assoc($this->result)) $list[] = $data; }
         return $list;
     }
 
     public function lastInsertID () {
 
-        return mysql_insert_id($this->dbLink);
+        return mysqli_insert_id($this->dbLink);
     }
 }
