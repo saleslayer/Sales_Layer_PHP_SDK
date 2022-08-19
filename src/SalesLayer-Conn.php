@@ -9,14 +9,14 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2021-01-27
+ * @modified 2021-09-06
  *
- * @version 1.35
+ * @version 1.36
  */
 class SalesLayer_Conn 
 {
 
-    public $version_class = '1.35';
+    public $version_class = '1.36';
 
     public $url = 'api.saleslayer.com';
 
@@ -40,6 +40,8 @@ class SalesLayer_Conn
     public $response_api_version;
     public $response_time;
     public $response_action;
+    public $response_headings;
+    public $response_custom_parameters;
     public $response_tables_info;
     public $response_tables_data;
 
@@ -98,7 +100,7 @@ class SalesLayer_Conn
      */
     public function __construct($codeConn = null, $secretKey = null, $SSL = null, $url = null, $forceuft8 = true)
     {
-        if ($this->__has_system_requirements()) {
+        if ($this->has_system_requirements()) {
             if (true == $forceuft8) {
                 ini_set('default_charset', 'utf-8');
             }
@@ -117,10 +119,10 @@ class SalesLayer_Conn
      *
      * @return bool
      */
-    private function __has_system_requirements()
+    private function has_system_requirements()
     {
         if (!extension_loaded('curl')) {
-            $this->__trigger_error('Missing PHP curl extension', 100);
+            $this->trigger_error('Missing PHP curl extension', 100);
 
             return false;
         }
@@ -135,7 +137,7 @@ class SalesLayer_Conn
      *
      * @return string
      */
-    private function __get_api_url($last_update = false)
+    private function get_api_url($last_update = false)
     {
         if (null != $this->__secretKey) {
             $time    = time();
@@ -149,7 +151,7 @@ class SalesLayer_Conn
             $get = '';
         }
 
-        $URL = 'http' . (($this->SSL) ? 's' : '') . '://' . $this->url . (strpos($this->url, '?') !== false ? '&' : '?').'code=' . urlencode($this->__codeConn) . $get;
+        $URL = 'http'.($this->SSL ? 's' : '').'://'.$this->url.(strpos($this->url, '?') !== false ? '&' : '?').'code='.urlencode($this->__codeConn).$get;
 
         if ($last_update) {
             $URL .= '&last_update=' . (!is_numeric($last_update) ? strtotime($last_update) : $last_update);
@@ -173,7 +175,7 @@ class SalesLayer_Conn
     /**
      * Clean previous error code.
      */
-    private function __clean_error()
+    private function clean_error()
     {
         $this->response_error         = 0;
         $this->response_error_message = '';
@@ -190,7 +192,7 @@ class SalesLayer_Conn
         $this->__codeConn  = $codeConn;
         $this->__secretKey = $secretKey;
 
-        $this->__clean_error();
+        $this->clean_error();
     }
 
     /**
@@ -334,7 +336,7 @@ class SalesLayer_Conn
                 $params['pagination'] = $this->output_pagination;
             }
 
-            $stat = $this->call($this->__get_api_url($last_update), $params);
+            $stat = $this->call($this->get_api_url($last_update), $params);
 
             if ($stat) {
                     
@@ -342,13 +344,13 @@ class SalesLayer_Conn
                     && isset($this->data_returned['schema']['connector_type'])
                     &&       $this->data_returned['schema']['connector_type'] != $connector_type) {
 
-                    $this->__trigger_error('Wrong connector type: '.$this->data_returned['schema']['connector_type'], 105);
+                    $this->trigger_error('Wrong connector type: '.$this->data_returned['schema']['connector_type'], 105);
 
                 } else {
 
-                    $this->__clean_error();
+                    $this->clean_error();
 
-                    return $this->__parsing_json_returned();
+                    return $this->parsing_json_returned();
                 }
             } 
         }
@@ -397,9 +399,9 @@ class SalesLayer_Conn
 
             if ($stat) {
                
-                $this->__clean_error();
+                $this->clean_error();
 
-                return $this->__parsing_json_returned();
+                return $this->parsing_json_returned();
 
             } else {
 
@@ -481,20 +483,26 @@ class SalesLayer_Conn
 
             if (!empty($params)) {
 
+                if ($this->time_unlimit) {
+                    set_time_limit(0);
+                }
+                if ($this->user_abort) {
+                    ignore_user_abort(true);
+                }
+
                 if ($force_directly) {
                     $params['input_data_directly'] = 1;
                 }
-
 
                 if ($compression) {
                     $params['compression'] = 1;
                 }
 
-                $stat = $this->call($this->__get_api_url(), $params);
+                $stat = $this->call($this->get_api_url(), $params);
 
                 if ($stat && is_array($this->data_returned)) {
 
-                    $stat = $this->__parsing_json_returned();
+                    $stat = $this->parsing_json_returned();
 
                     return (floatval($this->connect_API_version) > 1.17 ? $stat : $this->data_returned['input_response']);
                 }
@@ -590,8 +598,8 @@ class SalesLayer_Conn
 
             if ($stat) {
             
-                $this->__clean_error();
-                $this->__parsing_json_returned();
+                $this->clean_error();
+                $this->parsing_json_returned();
 
                 if (!$this->response_input_tracking_status) {
 
@@ -709,16 +717,16 @@ class SalesLayer_Conn
                     return true;
 
                 } else {
-                    $this->__trigger_error('Void response or malformed: '.$response, 101);
+                    $this->trigger_error('Void response or malformed: '.$response, 101);
                 }
             } else {
-                $this->__trigger_error('Error connection: '.curl_error($ch), 102);
+                $this->trigger_error('Error connection: '.curl_error($ch), 102);
             }
             
             curl_close($ch);
 
         } else {
-            $this->__trigger_error('Incorrect URL call: '.$url, 100);
+            $this->trigger_error('Incorrect URL call: '.$url, 100);
         }
 
         return false;
@@ -739,7 +747,7 @@ class SalesLayer_Conn
       *
       * @return bool
       */
-     private function __parsing_json_returned()
+     private function parsing_json_returned()
      {
         $this->response_api_version        =
         $this->response_time               =
@@ -775,11 +783,21 @@ class SalesLayer_Conn
                      $message_error = 'API error';
                  }
  
-                 $this->__trigger_error($message_error, $this->data_returned['error']);
+                 $this->trigger_error($message_error, $this->data_returned['error']);
 
             } else {
                 
                 $status = false;
+
+                if (isset($this->data_returned['schema']['headings'])) {
+                
+                    $this->response_headings = $this->data_returned['schema']['headings'];
+                }
+
+                if (isset($this->data_returned['schema']['custom_parameters'])) {
+                
+                    $this->response_custom_parameters = $this->data_returned['schema']['custom_parameters'];
+                }
 
                 if (isset($this->data_returned['data'])) {
 
@@ -992,7 +1010,7 @@ class SalesLayer_Conn
      * @param string $message error text
      * @param int    $errnum  error identificator
      */
-    public function __trigger_error($message, $errnum)
+    public function trigger_error($message, $errnum)
     {
         if (empty($this->response_error)) {
             $this->response_error         = $errnum;
@@ -1458,5 +1476,82 @@ class SalesLayer_Conn
         }
 
         return $titles;
+    }
+
+    /**
+     * Get headings of fields in certain language.
+     *
+     * @param string $language (ISO 639-1)
+     *
+     * @return array
+     */
+
+    public function get_headings ($language, $table = null) {
+
+        $headings         = [];
+        $default_language = $this->data_returned['schema']['default_language'];
+
+        if ($table) {
+
+            if (isset($this->response_headings[$table])) {
+
+                foreach ($this->response_headings[$table] as $info) {
+
+                    $title = $info['title'];
+
+                    if (isset($info['titles'])) {
+                        
+                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
+                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                    }
+
+                    $headings[] = [
+
+                        'title'          => $title,
+                        'position'       => $info['position'],
+                        'field_previous' => $info['field_previous']
+                    ];
+                }
+            }
+
+        } else {
+
+            foreach ($this->response_headings as $table =>& $titles) {
+
+                $headings[$table] = [];
+
+                foreach ($titles as $info) {
+
+                    $title = $info['title'];
+
+                    if (isset($info['titles'])) {
+                        
+                        if      (isset($info['titles'][$language])         and $info['titles'][$language])         { $title = $info['titles'][$language]; }
+                        else if (isset($info['titles'][$default_language]) and $info['titles'][$default_language]) { $title = $info['titles'][$default_language]; }
+                    }
+
+                    $headings[$table][] = [
+
+                        'title'          => $title,
+                        'position'       => $info['position'],
+                        'field_previous' => $info['field_previous']
+                    ];
+                }
+            }
+            unset($titles);
+        }
+        
+        return $headings;
+    } 
+
+    /**
+     * Get custom parameter.
+     *
+     * @return value
+     */
+
+    function get_custom_paremeter ($param) {
+        
+        return (isset($this->response_custom_parameters[$param]) ? $this->response_custom_parameters[$param] : null);
     }
 }
