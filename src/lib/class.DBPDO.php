@@ -43,9 +43,10 @@ class slyr_SQL {
                 $this->error = $e->getMessage();
                 return false;
             }
-        } else {
-            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_SILENT);
         }
+
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_SILENT);
+
         return true;
     }
 
