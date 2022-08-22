@@ -17,6 +17,17 @@ This SDK contains all the logic and connection methods to Sales Layer’s custom
 
 PHP 5.6 and later
 
+## Started
+### With Github
+Access [github](https://github.com/saleslayer/Sales_Layer_PHP_SDK "Sales_Layer_PHP_SDK") and download the package.
+
+### With Composer
+Using [Composer](https://getcomposer.org/ "Composer") is the recommended way to install the Sales Layer SDK for PHP. The SDK is available via [Packagist](https://packagist.org/ "packagist.org") under the **saleslayer/saleslayer-php-sdk** package. If Composer is installed globally on your system, you can run the following in the base directory of your project to add the SDK as a dependency:
+
+```php
+composer require saleslayer/saleslayer-php-sdk
+```
+
 ## Examples
 
 ```php
