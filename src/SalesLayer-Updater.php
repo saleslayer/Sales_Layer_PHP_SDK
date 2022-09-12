@@ -3324,7 +3324,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $where .= ($where ? ' or ' : '')."`$sly_table`.`$join_field_id` IN (select DISTINCT `$sly_table`.`$join_field_id` from `$sly_table`".
                       $this->add_tables_join_in_query($sly_table, $tables_where).
-                      ' where '.$sub_where.')';
+                      ' where '.$sub_where.')' .
+                      ' and '. (substr($sub_where, 0, 1) == '(' ? $sub_where : '(' . $sub_where . ')');
         }
 
         return $where;
