@@ -9,7 +9,7 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2022-08-16
+ * @modified 2022-09-13
  * @version 1.28
  *
  */
@@ -2925,11 +2925,16 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                             } else {
 
                                 $sub_wheres[$db_join_table] = $sub_where;
+
+                                if (!empty($tables_db_where)) {
+                                
+                                    $this->get_tables_for_joins($sly_table, $tables_db_where, $join_field_id, $tables_where);
+                                }
                             }
 
                             if (!empty($tables_db_where)) {
                                 
-                                $this->get_tables_for_joins($sly_table, $tables_db_where, $join_field_id, $tables_where);
+                                $this->get_tables_for_joins($sly_table, $tables_db_where, $join_field_id, $tables_db);
                             }
                         }
                     }
@@ -3157,11 +3162,16 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         } else {
 
                             $sub_wheres[$db_join_table] = $sub_where;
+
+                            if (!empty($tables_db_where)) {
+
+                                $this->get_tables_for_joins($sly_table, $tables_db_where, $join_field_id, $tables_where);
+                            }
                         }
 
                         if (!empty($tables_db_where)) {
 
-                            $this->get_tables_for_joins($sly_table, $tables_db_where, $join_field_id, $tables_where);
+                            $this->get_tables_for_joins($sly_table, $tables_db_where, $join_field_id, $tables_db);
                         }
                     }
                 }
@@ -3322,10 +3332,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         foreach ($sub_wheres as $sub_where) {
 
-            $where .= ($where ? ' or ' : '')."`$sly_table`.`$join_field_id` IN (select DISTINCT `$sly_table`.`$join_field_id` from `$sly_table`".
+            $where .= ($where ? ' or ' : '')."(`$sly_table`.`$join_field_id` IN (select DISTINCT `$sly_table`.`$join_field_id` from `$sly_table`".
                       $this->add_tables_join_in_query($sly_table, $tables_where).
-                      ' where '.$sub_where.')' .
-                      ' and '. (substr($sub_where, 0, 1) == '(' ? $sub_where : '(' . $sub_where . ')');
+                      ' where '.$sub_where.') and '.(substr($sub_where, 0, 1) == '(' ? $sub_where : "($sub_where)").')';
         }
 
         return $where;
