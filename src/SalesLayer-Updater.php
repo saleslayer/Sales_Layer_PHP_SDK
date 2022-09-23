@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2022-09-13
- * @version 1.28
+ * @modified 2022-09-23
+ * @version 1.29
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        require_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version    = '1.28';
+    public  $updater_version    = '1.29';
 
     public  $database           = null;
     public  $username           = null;
@@ -877,7 +877,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     }
 
     /**
-     * Define utf mode
+     * Get charset
      *
      * @return string
      */
@@ -1066,6 +1066,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     $fields[$field] = $info;
                 }
+                unset($info);
 
             } else {
 
@@ -1675,7 +1676,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $schema_db_fields = $this->get_table_fields_db($table);
 
-                if (is_array($schema_db_fields) && !empty($schema_db_fields)) {
+                if (!empty($schema_db_fields) && is_array($schema_db_fields)) {
 
                     $fields = [];
 
@@ -1789,7 +1790,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
         if (strpos($db_table, $this->table_prefix) === 0) { 
             
-            $db_table = substr($db_table, strlen($this->table_prefix));
+            $db_table = preg_replace('/___[0-9]+$/', '', substr($db_table, strlen($this->table_prefix)));
         }
 
         return '___'.$db_table.'_id';
@@ -1871,7 +1872,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $this->get_database_table_fields($sly_table);
 
             if ($mode_insert) {
-      
+
                 if (!isset($this->rel_multitables[$sly_table]) || !in_array($sly_table, $this->rel_multitables[$sly_table])) {
 
                     $string_fields = $this->get_field_key_for_insert($table);
@@ -1908,37 +1909,44 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         if ($mode) {
 
-                            $this_db_table = '';
+                            if (substr($mode, 0, 3) == 'ADD') {
 
-                            foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
+                                $this_db_table = '';
 
-                                if (count($this->table_columns[$multi_db_table]) < $this->max_table_columns) {
+                                foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
 
-                                    $this_db_table                         = $multi_db_table; 
-                                    $this->table_columns[$this_db_table][] = $db_field;
+                                    if (count($this->table_columns[$multi_db_table]) < $this->max_table_columns) {
 
-                                    break;
+                                        $this_db_table                         = $multi_db_table; 
+                                        $this->table_columns[$this_db_table][] = $db_field;
+
+                                        break;
+                                    }
                                 }
-                            }
 
-                            if (!$this_db_table) {
+                                if (!$this_db_table) {
 
-                                $count = 0;
+                                    $count = 0;
 
-                                do {
+                                    do {
 
-                                    $this_db_table = $sly_table.($count ++ ? '___'.$count : '');
+                                        $this_db_table = $sly_table.($count ++ ? '___'.$count : '');
 
-                                } while (in_array($this_db_table, $this->rel_multitables[$sly_table]));
+                                    } while (in_array($this_db_table, $this->rel_multitables[$sly_table]));
 
-                                if ($this->create_table($this_db_table, '`'.$key_field.'` bigint unsigned not null', false)) {
+                                    if ($this->create_table($this_db_table, '`'.$key_field.'` bigint unsigned not null', false)) {
 
-                                    $this->table_columns[$this_db_table][] = $db_field;
+                                        $this->table_columns[$this_db_table][] = $db_field;
 
-                                } else {
+                                    } else {
 
-                                    $this_db_table = '';
+                                        $this_db_table = '';
+                                    }
                                 }
+
+                            } else if (isset($this->column_tables[$sly_table][$db_field])) {
+
+                                $this_db_table = $this->column_tables[$sly_table][$db_field];
                             }
 
                             if ($this_db_table && (!isset($this->database_fields[$sly_table][$db_field]) || preg_match('/^CHANGE\s+/i', $mode))) {
@@ -1968,6 +1976,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 }
             }
 
+            $this->update_indexes($db_table);
+
             if ($ok) {
 
                 return true;
@@ -1975,6 +1985,95 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         }
 
         return false;
+    }
+
+    /**
+     * Update indexes of tables
+     *
+     * @param $db_table string table name
+     */
+
+    private function update_indexes ($db_table) {
+
+        $changed   = false;
+        $sly_table = $this->table_prefix.$db_table;
+        
+        $this->get_database_table_fields($sly_table);
+        
+        if (isset($this->column_tables[$sly_table])) {
+
+            $db_multi_tables = $this->column_tables[$sly_table];
+            $db_multi_tables = array_unique(array_values($db_multi_tables));
+            $field_key       = $this->get_field_key($db_table);
+
+            foreach ($db_multi_tables as $db_multi_table) {
+
+                $indexes        =
+                $delete_indexes = [];
+
+                $res = $this->DB->execute($this->add_to_debug("SHOW INDEXES FROM `$db_multi_table`"));
+
+                if ($res) {
+
+                    foreach ($res as &$row) {
+
+                        if (!isset($this->column_tables[$sly_table][$row['Column_name']]) || $this->column_tables[$sly_table][$row['Column_name']] != $db_multi_table) {
+
+                            if ($row['Key_name'] != 'PRIMARY' && !isset($delete_indexes[$row['Key_name']])) { $delete_indexes[$row['Key_name']] = $db_multi_table; }
+
+                        } else {
+
+                            $index_key = ($row['Key_name'] == 'PRIMARY' ? $row['Column_name'] : $row['Key_name']);
+                            
+                            if (!isset($indexes[$index_key])) { $indexes[$index_key] = []; }
+
+                            $indexes[$index_key][] = $row['Column_name'];
+                        }
+                    }
+                    unset($row, $res);
+                }
+
+                if (!empty($delete_indexes)) {
+
+                    foreach ($delete_indexes as $field_index => $table_index) {
+
+                        if ($this->DB->execute($this->add_to_debug("ALTER TABLE `$table_index` DROP INDEX `$field_index`;"))) {
+
+                            $changed = true;
+                        }
+
+                        unset($indexes[$field_index]);
+                    }
+                    unset($delete_indexes);
+                }
+
+                foreach ($this->column_tables[$sly_table] as $field => $db_field_table) {
+
+                    if (preg_match('/^___.+?_id$/i', $field) && $db_field_table == $db_multi_table) {
+
+                        if ($field == $field_key) {
+
+                            if ($db_field_table != $sly_table && !isset($indexes[$field])) {
+                                    
+                                if ($this->DB->execute($this->add_to_debug("ALTER TABLE `$db_multi_table` ADD INDEX `$field` (`$field`);"))) {
+
+                                    $changed = true;
+                                } 
+                            }
+
+                        } else if (!isset($indexes[$field])) {
+
+                            if ($this->DB->execute($this->add_to_debug("ALTER TABLE `$db_multi_table` ADD INDEX `$field` (`$field`, `$field_key`);"))) {
+
+                                $changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $changed;
     }
 
     /**
@@ -2779,8 +2878,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 $table_fields       =
                 $field_types        =
                 $select_list        =
-                $sub_wheres         =
-                $tables_where       =
                 $field_keys_added   = [];
                 $table_count        = 
                 $field_count        = 0;
@@ -2924,12 +3021,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             } else {
 
-                                $sub_wheres[$db_join_table] = $sub_where;
+                                $table_db_where      = reset($tables_db_where);
+                                $join_where_field_id = $this->get_field_key($table_db_where);
 
-                                if (!empty($tables_db_where)) {
-                                
-                                    $this->get_tables_for_joins($sly_table, $tables_db_where, $join_field_id, $tables_where);
-                                }
+                                $where = $this->add_sub_selects_in_where($table_db_where, $join_where_field_id, $tables_db_where, $sub_where, $where);
                             }
 
                             if (!empty($tables_db_where)) {
@@ -3008,11 +3103,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 }
                             }
                         }   
-                    }
-
-                    if (!empty($sub_wheres)) {
-
-                        $where = $this->add_sub_selects_in_where($sly_table, $join_field_id, $tables_where, $sub_wheres, $where);
                     }
 
                     $SQL = 'select '.(($get_internal_ids && $field_id_name) ? "$field_id_db as `$field_id_name`, " : '').
@@ -3127,9 +3217,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $language       = $this->test_language($language);
             $base_language  = $this->get_default_language();
-            $tables_db      = 
-            $tables_where   =
-            $sub_wheres     = [];
+            $tables_db      = [];
             $sql_group      = 
             $where          = '';
 
@@ -3161,12 +3249,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                         } else {
 
-                            $sub_wheres[$db_join_table] = $sub_where;
+                            $table_db_where      = reset($tables_db_where);
+                            $join_where_field_id = $this->get_field_key($table_db_where);
 
-                            if (!empty($tables_db_where)) {
-
-                                $this->get_tables_for_joins($sly_table, $tables_db_where, $join_field_id, $tables_where);
-                            }
+                            $where = $this->add_sub_selects_in_where($table_db_where, $join_where_field_id, $tables_db_where, $sub_where, $where);
                         }
 
                         if (!empty($tables_db_where)) {
@@ -3192,11 +3278,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             if (!empty($tables_db)) {
 
                 $SQL .= $this->add_tables_join_in_query($sly_table, $tables_db);
-            }
-
-            if (!empty($sub_wheres)) {
-
-                $where = $this->add_sub_selects_in_where($sly_table, $join_field_id, $tables_where, $sub_wheres, $where);
             }
 
             if ($where) { $SQL .= ' where '.$where; }
@@ -3326,16 +3407,17 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      * @return string
      */
 
-    private function add_sub_selects_in_where ($sly_table, $join_field_id, $tables_where, $sub_wheres, $where = '') {
+    private function add_sub_selects_in_where ($sly_table, $join_field_id, $tables_where, $sub_where, $where = '') {
 
-        if (!isset($tables_where[$sly_table])) { $tables_where = array_merge([$sly_table => [$sly_table, $join_field_id]], $tables_where); }
+        $tables_db = [ $sly_table => [$sly_table, $join_field_id] ];
 
-        foreach ($sub_wheres as $sub_where) {
+        foreach ($tables_where as $table_db) {
 
-            $where .= ($where ? ' or ' : '')."(`$sly_table`.`$join_field_id` IN (select DISTINCT `$sly_table`.`$join_field_id` from `$sly_table`".
-                      $this->add_tables_join_in_query($sly_table, $tables_where).
-                      ' where '.$sub_where.') and '.(substr($sub_where, 0, 1) == '(' ? $sub_where : "($sub_where)").')';
+           if ($table_db !== $sly_table) { $tables_db[$table_db] = [$table_db, $this->get_field_key($table_db)]; }
         }
+
+        $where .= ($where ? ' or ' : '')."`$sly_table`.`$join_field_id` IN (select DISTINCT `$sly_table`.`$join_field_id` from `$sly_table`".
+                                         $this->add_tables_join_in_query($sly_table, $tables_db).' where '.$sub_where.')';
 
         return $where;
     }
