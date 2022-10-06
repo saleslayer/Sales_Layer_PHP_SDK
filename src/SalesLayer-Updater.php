@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2022-09-23
- * @version 1.29
+ * @modified 2022-10-05
+ * @version 1.30
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        require_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version    = '1.29';
+    public  $updater_version    = '1.30';
 
     public  $database           = null;
     public  $username           = null;
@@ -2045,6 +2045,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         unset($indexes[$field_index]);
                     }
                     unset($delete_indexes);
+                }
+
+                if (!isset($indexes[$field_key])) {
+
+                    if ($this->DB->execute($this->add_to_debug("ALTER TABLE `$db_multi_table` ADD CONSTRAINT `" . $db_multi_table . "` PRIMARY KEY (`$field_key`);"))) {
+
+                        $changed = true;
+                    }
                 }
 
                 foreach ($this->column_tables[$sly_table] as $field => $db_field_table) {
