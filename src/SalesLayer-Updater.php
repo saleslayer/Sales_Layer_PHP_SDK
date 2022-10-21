@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2022-10-05
- * @version 1.30
+ * @modified 2022-10-21
+ * @version 1.31
  *
  */
 
@@ -29,12 +29,14 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     public  $charset            = 'utf8';
 
     public  $table_prefix       = 'slyr_';
+    public  $table_ctrl_prefix  = '__slyr_ctrl_';
     public  $table_config       = '__api_config';
     public  $table_engine       = 'MyISAM';
     public  $table_row_format   = 'COMPACT';
     public  $max_column_chars   = 50;
     public  $max_table_columns  = 800;
     public  $max_size_multikey  = 512;
+    public  $use_control_table  = false;
 
     public  $list_connectors    = [];
 
@@ -58,6 +60,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
     private $update_pagination  = null;
     private $database_init_date = null;
     private $SQL_errors         = [];
+    private $control_db_tables  = [];
+    private $last_control_md5   = null;
 
     private $database_field_types = [
 
@@ -1380,6 +1384,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     foreach ($tables as $table) {
 
+                        if ($this->use_control_table) {
+
+                            $this->test_control_table($table);
+                        }
+
                         $db_table = $this->verify_table_name($table);
 
                         if (!in_array($this->table_prefix.$db_table, $this->database_tables)) {
@@ -2559,10 +2568,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     foreach ($data as $k =>& $register) {
 
-                       $id     = addslashes($register['ID']);
-                       $fields = [ $sly_table => "___modified='$modified'" ];
+                        $id     = addslashes($register['ID']);
+                        $fields = [ $sly_table => "___modified='$modified'" ];
 
-                       foreach ($register as $field =>& $f_data) {
+                        foreach ($register as $field =>& $f_data) {
 
                             if ($field == 'data') {
 
@@ -2611,11 +2620,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                     $fields[$multi_db_table] .= ($fields[$multi_db_table] ? ', ' : '')."`{$fields_conn[$field]}` = '".addslashes($f_data)."'";
                                 }
                             }
-
-                            unset($register[$field]);
                         }
-
-                        unset($register, $data[$k], $f_data);
+                        unset($f_data);
 
                         if (!empty($fields)) {
 
@@ -2623,30 +2629,38 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                      
                             if (isset($ids[$id])) {
 
-                                $limit     = (count($fields) > 1 ? '' : ' limit 1');
-                                $tables    =
-                                $db_fields = '';
+                                if (!$this->use_control_table || $this->changed_control_table_register($table, $id, $register)) {
 
-                                foreach ($fields as $multi_db_table => $string_fields) {
+                                    $limit     = (count($fields) > 1 ? '' : ' limit 1');
+                                    $tables    =
+                                    $db_fields = '';
 
-                                    $db_fields .= ($db_fields ? ', ' : '').$string_fields;
-                             
-                                    if (!isset($ids[$id][1][$conn_id]) &&  $multi_db_table == $sly_table) { 
-                                        
-                                        $db_fields .= ', `__conn_id__`=\''.addslashes($ids[$id][0].','.$conn_id).'\'';
+                                    foreach ($fields as $multi_db_table => $string_fields) {
+
+                                        $db_fields .= ($db_fields ? ', ' : '').$string_fields;
+                                
+                                        if (!isset($ids[$id][1][$conn_id]) &&  $multi_db_table == $sly_table) { 
+                                            
+                                            $db_fields .= ', `__conn_id__`=\''.addslashes($ids[$id][0].','.$conn_id).'\'';
+                                        }
+
+                                        if ($multi_db_table) {
+                                            
+                                            $tables .= ($tables ? $this->get_left_join_for_query($multi_db_table, $sly_table, $field_id)
+                                                                : 
+                                                                "`$multi_db_table`");
+                                        }
                                     }
 
-                                    if ($multi_db_table) {
-                                        
-                                        $tables .= ($tables ? $this->get_left_join_for_query($multi_db_table, $sly_table, $field_id)
-                                                              : 
-                                                              "`$multi_db_table`");
+                                    $SQL = "update $tables set $db_fields where `$sly_table`.`$field_id`='$id'$limit;";
+
+                                    if (!$this->DB->execute($this->add_to_debug($SQL))) $ok = false;
+
+                                    if ($this->use_control_table) {
+
+                                        $this->update_control_table_register();
                                     }
                                 }
-
-                                $SQL = "update $tables set $db_fields where `$sly_table`.`$field_id`='$id'$limit;";
-
-                                if (!$this->DB->execute($this->add_to_debug($SQL))) $ok = false;
 
                             } else {
 
@@ -2657,6 +2671,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                     $SQL = "insert into `$multi_db_table` set `$field_id`='$id', $string_fields;";
 
                                     if (!$this->DB->execute($this->add_to_debug($SQL)) && $this->DB->error) $ok = false;
+                                }
+
+                                if ($this->use_control_table) {
+
+                                    $this->insert_control_table_register($table, $id, $register);
                                 }
                             }
 
@@ -2669,6 +2688,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                 $errors = true;
                             }
                         }
+                        
+                        unset($register, $data[$k]);
                     }
                 }
             }
@@ -4103,7 +4124,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 $trace = "\n\n[SLYR_Updater] List of SQL's at ".date('Y-m-d H:i:s')."\n$trace";
             }
 
-            file_put_contents($this->debug_file_name, $trace, FILE_APPEND);
+            file_put_contents($this->debug_file_name, $trace."\n", FILE_APPEND);
         }
     }
 
@@ -4254,5 +4275,125 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         $this->test_update_stats = null;
 
         $this->clean_table_cache();
+    }
+
+    /**
+     * Set state to use control table
+     */
+
+    public function set_use_control_table ($status) {
+        
+        $this->use_control_table = $status;
+     }
+
+     /**
+      * Get state to use control table
+      */
+
+    public function get_use_control_table () {
+        
+        return $this->use_control_table;
+     }
+
+    /**
+     * Get the database name of the control table
+     */
+
+    private function get_control_table ($table) {
+
+        if (empty($this->control_db_tables[$table])) {
+
+            $db_table                        = $this->verify_table_name($table);
+            $this->control_db_tables[$table] = $this->table_ctrl_prefix.$db_table;
+            $this->last_control_md5          = null;
+        }
+
+        return $this->control_db_tables[$table];
+    }
+
+    /**
+     * Test if a control table needs to be created
+     */
+
+     private function test_control_table ($table) {
+
+        $ctrl_table = $this->get_control_table($table);
+
+        $this->get_database_tables();
+
+        if (!in_array($ctrl_table, $this->database_tables)) {
+
+            return $this->create_table($ctrl_table, '`id` bigint unsigned not null, `md5` char(32) not null', false);
+        }
+
+        return false;
+     }
+
+     /**
+      * Test if the register has changed
+      */
+
+      private function changed_control_table_register ($table, $id, &$register) {
+
+        if (!empty($id)) {
+
+            $ctrl_table   = $this->get_control_table($table);
+            $field_key_id = '`id`=\''.addslashes($id).'\'';
+            $md5          = md5(json_encode($register));
+
+            $SQL    = "SELECT `md5` FROM `$ctrl_table` WHERE $field_key_id LIMIT 1";
+            $res    = $this->DB->execute($this->add_to_debug($SQL));
+            $exists = (!empty($res));
+
+            if ($exists & $md5 === $res[0]['md5']) {
+
+                return false;
+            }
+
+            $this->last_control_md5 = [ $exists, $ctrl_table, $field_key_id, $md5 ];
+        }
+
+        return true;
+    }
+
+    /**
+     * Update the register value in the control table
+     */
+
+     private function update_control_table_register () {
+
+        if (!empty($this->last_control_md5)) {
+
+            list($exists, $ctrl_table, $field_key_id, $md5) = $this->last_control_md5;
+      
+            if ($exists) {
+
+                $SQL = "UPDATE `$ctrl_table` SET `md5`='$md5' WHERE $field_key_id LIMIT 1;";
+
+            } else {
+
+                $SQL = "INSERT INTO `$ctrl_table` SET $field_key_id, `md5`='$md5';";
+            }
+
+            $this->DB->execute($this->add_to_debug($SQL));
+
+            $this->last_control_md5 = null;
+        }
+    }
+
+    /**
+     * Insert the register value in the control table
+     */
+
+    private function insert_control_table_register ($table, $id, &$register) {
+
+        if (!empty($id)) {
+        
+            $ctrl_table = $this->get_control_table($table);
+            $md5        = md5(json_encode($register));
+            $SQL        = "INSERT INTO `$ctrl_table` SET `id`='".addslashes($id)."', `md5`='$md5';";
+
+            $this->DB->execute($this->add_to_debug($SQL));
+        }
     }
 }
