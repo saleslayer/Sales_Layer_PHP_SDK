@@ -1342,6 +1342,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
     public function update ($params = null, $connector_type = null, $force_refresh = false, $status_function = null) {
 
+        $has_updated = false;
+
         if ($code = $this->get_identification_code()) {
 
             $this->test_config_initialized($code);
@@ -1437,7 +1439,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     $this->refresh_last_update_config();
 
-                    return true;
+                    $has_updated = true;
                 }
             }
 
@@ -1446,7 +1448,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $this->trigger_error('Invalid connector code', 2);
         }
 
-        return false;
+        $this->add_to_debug('End update at: '.date('Y-m-d H:i:s'));
+
+        return $has_updated;
     }
 
     /**
@@ -1462,9 +1466,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             $this->database_tables = [];
 
-            if (!$this->response_error) {
+            if ($this->response_error != 104) {
 
-                $tables = $this->DB->execute($this->add_to_debug('SHOW TABLES'));
+                $tables = $this->DB->execute($this->add_to_debug('SHOW TABLES;'));
 
                 if (is_array($tables) && !empty($tables)) {
 
@@ -2698,9 +2702,10 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 $field_id = $this->get_field_key($db_table);
 
+
                 foreach ($ids_deleted as $k => $id) {
 
-                    if (isset($ids[$id]) && count($ids[$id][1]) > 1 && isset($ids[$id][1][$conn_id])) {
+                    if (isset($ids[$id]) && isset($ids[$id][1][$conn_id]) && count($ids[$id][1]) > 1) {
 
                         unset($ids[$id][1][$conn_id]);
 
@@ -2722,16 +2727,32 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                 if ($num_deletes = count($ids_deleted)) {
 
-                    foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
+                    do {
 
-                        $SQL = "delete from `$multi_db_table` where `$field_id` IN ('".implode("','", $ids_deleted)."') limit $num_deletes;";
+                        $where_ids = array_splice($ids_deleted, 0, 500);
+          
+                        if ($this->use_control_table) {
 
-                        if (!$this->DB->execute($this->add_to_debug($SQL)) && $multi_db_table == $sly_table) {
-
-                            if ($this->DB->error) $this->trigger_error($this->DB->error." ($SQL)", 104);
-
-                            $errors = true;
+                            $this->delete_control_table_register($table, $where_ids);
                         }
+
+                        foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
+
+                            $SQL = "delete from `$multi_db_table` where `$field_id` IN ('".implode("','", $where_ids)."') limit $num_deletes;";
+
+                            if (!$this->DB->execute($this->add_to_debug($SQL)) && $multi_db_table == $sly_table) {
+
+                                if ($this->DB->error) $this->trigger_error($this->DB->error." ($SQL)", 104);
+
+                                $errors = true;
+                            }
+                        }
+
+                    } while (!empty($ids_deleted));
+
+                    if ($this->use_control_table) {
+
+                        $this->optimize_control_table($table);
                     }
                 }
             }
@@ -2806,6 +2827,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         if (in_array($sly_table, $this->database_tables)) {
 
             $this->get_database_table_fields($sly_table);
+
+            if ($this->use_control_table) {
+
+                $this->clean_control_table($table);
+            }
 
             foreach ($this->rel_multitables[$sly_table] as $multi_db_table) {
 
@@ -4299,12 +4325,12 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      * Get the database name of the control table
      */
 
-    private function get_control_table ($table) {
+    private function get_control_table ($table, $refresh = false) {
 
-        if (empty($this->control_db_tables[$table])) {
+        if ($refresh || empty($this->control_db_tables[$table])) {
 
             $db_table                        = $this->verify_table_name($table);
-            $this->control_db_tables[$table] = $this->table_ctrl_prefix.$db_table;
+            $this->control_db_tables[$table] = $this->table_ctrl_prefix.strtolower($this->get_identification_code()).'_'.$db_table;
             $this->last_control_md5          = null;
         }
 
@@ -4317,7 +4343,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
      private function test_control_table ($table) {
 
-        $ctrl_table = $this->get_control_table($table);
+        $ctrl_table = $this->get_control_table($table, true);
 
         $this->get_database_tables();
 
@@ -4345,7 +4371,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $res    = $this->DB->execute($this->add_to_debug($SQL));
             $exists = (!empty($res));
 
-            if ($exists & $md5 === $res[0]['md5']) {
+            if ($exists && $md5 == $res[0]['md5']) {
 
                 return false;
             }
@@ -4396,4 +4422,46 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             $this->DB->execute($this->add_to_debug($SQL));
         }
     }
+
+    /**
+     * Delete the register value in the control table
+     */
+
+    private function delete_control_table_register ($table, $ids) {
+
+        if (!empty($ids)) {
+        
+            if (!is_array($ids)) { $ids = [ $ids ]; }
+
+            $ctrl_table = $this->get_control_table($table);
+            $SQL        = "DELETE FROM `$ctrl_table` WHERE `id` IN ('".implode('\',\'', array_map('addslashes', $ids)).'\') LIMIT '.count($ids).';';
+
+            $this->DB->execute($this->add_to_debug($SQL));
+        }
+    }
+
+    /**
+     * Delete the register value in the control table
+     */
+
+    private function optimize_control_table ($table) {
+
+        $ctrl_table = $this->get_control_table($table);
+        $SQL        = "OPTIMIZE TABLE `$ctrl_table`;";
+
+        $this->DB->execute($this->add_to_debug($SQL));
+    }
+
+
+    /**
+     * Clean the control table
+     */
+
+     private function clean_control_table ($table) {
+
+        $ctrl_table = $this->get_control_table($table);
+        $SQL        = "TRUNCATE TABLE `$ctrl_table`";
+
+        $this->DB->execute($this->add_to_debug($SQL));
+     }
 }
