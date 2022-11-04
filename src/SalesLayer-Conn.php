@@ -969,7 +969,8 @@ class SalesLayer_Conn
                     if (isset($this->data_returned['input_response'])) {
 
                         $this->response_input_status  = $this->data_returned['input_response']['result'];
-                        $this->response_input_errors  = (isset($this->data_returned['input_response']['error']) ? $this->data_returned['input_response']['error']  : '');
+                        $this->response_input_errors  = (isset($this->data_returned['input_response']['errors']) ?  $this->data_returned['input_response']['errors'] :
+                                                        (isset($this->data_returned['input_response']['error'])  ? [$this->data_returned['input_response']['error']] : []));
                         $this->response_input_results = [];
 
                         foreach (['items_affected', 'new_items', 'updated_items', 'deleted_items'] as $key) {
