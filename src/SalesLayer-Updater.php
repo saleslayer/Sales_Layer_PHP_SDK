@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2022-10-24
- * @version 1.31
+ * @modified 2022-12-07
+ * @version 1.31.1
  *
  */
 
@@ -2963,6 +2963,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 $table_joins     = $this->get_table_joins($table, $add_joins);
                 $have_conditions = (empty($conditions) ? false : true);
                 $have_group      = (empty($group)      ? false : true);
+                $field_names     = [];
 
                 foreach ($table_joins as $join_table => $join_field_id) {
 
@@ -2989,8 +2990,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                             }
                         }
                     }
-
-                    $field_names = [];
 
                     foreach ($fields as $name => $field) {
 
