@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2022-12-07
- * @version 1.31.1
+ * @modified 2023-01-27
+ * @version 1.31.3
  *
  */
 
@@ -3048,11 +3048,9 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             if (isset($concats[$field])) {
 
-                                $separator    = ((isset($concats[$field]['separator']) && $concats[$field]['separator']) ? $concats[$field]['separator'] : ', ');
-                                $select_field = 'GROUP_CONCAT('.$select_field.
-                                                ((isset($concats[$field]['order']) && $concats[$field]['order']) ?
-                                                    ' ORDER BY 1 '. (strtolower(substr($concats[$field]['order'], 0, 1)) != 'd' ? 'ASC' : 'DES') : '').
-                                                ' SEPARATOR \''.addslashes($separator).'\')';
+                                $separator    = (!empty($concats[$field]['separator']) ? $concats[$field]['separator'] : ', ');
+                                $concat_order = (!empty($concats[$field]['order'])     ? (strtolower(substr($concats[$field]['order'], 0, 1)) != 'd' ? 'ASC' : 'DES') : '');
+                                $select_field = 'GROUP_CONCAT('.$select_field.($concat_order ? ' ORDER BY 1 '.$concat_order : '').' SEPARATOR \''.addslashes($separator).'\')';
                             }
 
                             $field_ref = 't'.$table_count.'f'.($field_count ++).'.'.$field;
@@ -3136,7 +3134,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                     if ($this_db_table) {
 
-                                        $sql_order .= ($sql_order ? ', ' : '')."`$this_db_table`.`$db_field` $ord";
+                                        $sql_order .= ($sql_order ? ', ' : '')."LENGTH(`$this_db_table`.`$db_field`) $ord, `$this_db_table`.`$db_field` $ord";
+
 
                                         if ($this_db_table != $sly_table && !isset($tables_db[$this_db_table])) {
 
@@ -3165,7 +3164,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                             if ($this_db_table) {
 
-                                $sql_order = "`$this_db_table`.`$db_field` ASC";
+                                $sql_order = "LENGTH(`$this_db_table`.`$db_field`) ASC, `$this_db_table`.`$db_field` ASC";
 
                                 if ($this_db_table != $sly_table && !isset($tables_db[$this_db_table])) {
 
