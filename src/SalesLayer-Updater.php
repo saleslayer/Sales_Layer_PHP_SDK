@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2023-01-27
- * @version 1.31.3
+ * @modified 2023-02-07
+ * @version 1.33
  *
  */
 
@@ -3136,7 +3136,6 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                         $sql_order .= ($sql_order ? ', ' : '')."LENGTH(`$this_db_table`.`$db_field`) $ord, `$this_db_table`.`$db_field` $ord";
 
-
                                         if ($this_db_table != $sly_table && !isset($tables_db[$this_db_table])) {
 
                                             $this->get_tables_for_joins($sly_table, $this_db_table, $join_field_id, $tables_db);
@@ -3147,6 +3146,8 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         }
                     }
                 }
+
+                unset($field_names);
 
                 if (!empty($select_list)) {
 
@@ -3590,6 +3591,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         $sfields = (is_array($param['field']) ? $param['field'] : explode(',', $param['field']));
                         $sfields = array_unique($sfields);
                         $fgroup  = '';
+                        $ngroup  = 0;
 
                         foreach ($sfields as $field) {
 
@@ -3610,6 +3612,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                         if ($this_db_table) {
 
                                             $fgroup .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'' COLLATE ". $this->get_collate().')';
+                                            $ngroup ++;
 
                                             if (!in_array($this_db_table, $tables_db)) { $tables_db[] = $this_db_table; }
                                         }
@@ -3625,6 +3628,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                             if ($this_db_table) {
 
                                                 $fgroup .= ($fgroup ? ', ' : '')."COALESCE(`$this_db_table`.`$db_field`,'' COLLATE ". $this->get_collate().')';
+                                                $ngroup ++;
 
                                                 if (!in_array($this_db_table, $tables_db)) { $tables_db[] = $this_db_table; }
                                             }
@@ -3637,7 +3641,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         if ($fgroup) {
 
                             $clause = ((isset($param['strict']) && $param['strict']) ? 'BINARY ' : '').
-                                      'lower('.(count($sfields) > 1 ? "concat($fgroup)" : $fgroup).") like '%".addslashes(strtolower($param['search']))."%'";
+                                      'lower('.($ngroup > 1 ? "concat($fgroup)" : $fgroup).") like '%".addslashes(strtolower($param['search']))."%'";
                         }
 
                     } else if (isset($param['value']) && $db_field = $this->get_real_field($param['field'], $table, $language)) {
