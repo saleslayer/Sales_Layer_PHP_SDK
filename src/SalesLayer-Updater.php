@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2023-02-07
- * @version 1.33
+ * @modified 2023-02-09
+ * @version 1.34
  *
  */
 
@@ -3122,25 +3122,20 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                                 unset($order[$field]);
 
-                                if (!$db_field = $this->get_real_field($field, $join_table, $language)) {
-                                     $db_field = $this->get_real_field($field, $join_table, $base_language);
+                                if (strtoupper($ord) != 'ASC') { $ord = 'DESC'; }
+
+                                if ($db_field = $this->get_real_field($field, $join_table, $language)) {
+
+                                    $new_sql_order = $this->get_order_field($ord, $db_field, $table, $sly_table, $join_field_id, $tables_db);
+
+                                    if ($new_sql_order) { $sql_order .= ($sql_order ? ', ' : '').$new_sql_order; }
                                 }
 
-                                if ($db_field) {
+                                if ($language != $base_language && $db_field = $this->get_real_field($field, $join_table, $base_language)) {
 
-                                    if (strtoupper($ord) != 'ASC') { $ord = 'DESC'; }
+                                    $new_sql_order = $this->get_order_field($ord, $db_field, $table, $sly_table, $join_field_id, $tables_db);
 
-                                    $this_db_table = $this->get_table_for_field($db_field, $join_table);
-
-                                    if ($this_db_table) {
-
-                                        $sql_order .= ($sql_order ? ', ' : '')."LENGTH(`$this_db_table`.`$db_field`) $ord, `$this_db_table`.`$db_field` $ord";
-
-                                        if ($this_db_table != $sly_table && !isset($tables_db[$this_db_table])) {
-
-                                            $this->get_tables_for_joins($sly_table, $this_db_table, $join_field_id, $tables_db);
-                                        }
-                                    }
+                                    if ($new_sql_order) { $sql_order .= ($sql_order ? ', ' : '').$new_sql_order; }
                                 }
                             }
                         }
@@ -3155,23 +3150,18 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     if ($field_title && !$sql_order) {
 
-                        if (!($db_field = $this->get_real_field($field_title, $table, $language)) && $language != $base_language) {
-                              $db_field = $this->get_real_field($field_title, $table, $base_language);
+                        if ($db_field = $this->get_real_field($field, $join_table, $language)) {
+
+                            $new_sql_order = $this->get_order_field('ASC', $db_field, $table, $sly_table, $join_field_id, $tables_db);
+
+                            if ($new_sql_order) { $sql_order = $new_sql_order; }
                         }
 
-                        if ($db_field) {
+                        if ($language != $base_language && $db_field = $this->get_real_field($field, $join_table, $base_language)) {
 
-                            $this_db_table = $this->get_table_for_field($db_field, $table);
+                            $new_sql_order = $this->get_order_field('ASC', $db_field, $table, $sly_table, $join_field_id, $tables_db);
 
-                            if ($this_db_table) {
-
-                                $sql_order = "LENGTH(`$this_db_table`.`$db_field`) ASC, `$this_db_table`.`$db_field` ASC";
-
-                                if ($this_db_table != $sly_table && !isset($tables_db[$this_db_table])) {
-
-                                    $this->get_tables_for_joins($sly_table, $this_db_table, $join_field_id, $tables_db);
-                                }
-                            }
+                            if ($new_sql_order) { $sql_order .= ($sql_order ? ', ' : '').$new_sql_order; }
                         }
                     }
 
@@ -3367,6 +3357,30 @@ class SalesLayer_Updater extends SalesLayer_Conn {
         }
 
         return 0;
+    }
+
+    /**
+     * Get field order for extract
+     *
+     * @return string
+     */
+
+    private function get_order_field ($ord, $db_field, $table, $sly_table, $join_field_id, &$tables_db) {
+
+        $sql_order     = '';
+        $this_db_table = $this->get_table_for_field($db_field, $table);
+
+        if ($this_db_table) {
+
+            $sql_order = "CAST(`$this_db_table`.`$db_field` AS UNSIGNED) $ord, `$this_db_table`.`$db_field` $ord";
+
+            if ($this_db_table != $sly_table && !isset($tables_db[$this_db_table])) {
+
+                $this->get_tables_for_joins($sly_table, $this_db_table, $join_field_id, $tables_db);
+            }
+        }
+
+        return $sql_order;
     }
 
     /**
