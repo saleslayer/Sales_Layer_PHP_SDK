@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2023-02-09
- * @version 1.34
+ * @modified 2023-02-10
+ * @version 1.35
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        require_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version    = '1.30';
+    public  $updater_version    = '1.35';
 
     public  $database           = null;
     public  $username           = null;
@@ -2597,6 +2597,11 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                         $db_field = $fields_conn[$d_field];
 
                                         if (isset($this->column_tables[$sly_table][$db_field])) {
+
+                                            if ($schema[$fields_conn[$d_field]]['type'] == 'datetime' && (empty($value) || substr($value, 0, 10) == '0000-00-00' || !preg_match('/^\d{4}-\d{2}-\d{2}/', $value))) {
+
+                                                $value = null;
+                                            }
 
                                             $multi_db_table = $this->column_tables[$sly_table][$db_field];
 
