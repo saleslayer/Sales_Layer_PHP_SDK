@@ -9,7 +9,7 @@
  *
  * SalesLayer Conn class is a library for connection to SalesLayer API
  *
- * @modified 2021-09-06
+ * @modified 2021-09-10
  *
  * @version 1.36
  */
@@ -828,17 +828,15 @@ class SalesLayer_Conn
                                 } else {
                                     $this->response_tables_info[$table]['fields'][$field]['title'] = $field;
                                 }
-                                if (isset($props['tag_translations']) && $props['tag_translations']) {
-                                    $this->response_tables_info[$table]['fields'][$field]['tag_translations'] = $props['tag_translations'];
+
+                                foreach (['is_multicheck', 'tag_list', 'tag_translations', 'table_key', 'origin'] as $key) {
+                                    if (isset($props[$key]) && $props[$key]) {
+                                        $this->response_tables_info[$table]['fields'][$field][$key] = $props[$key];
+                                    }
                                 }
-                                if (isset($props['table_key'])) {
-                                    $this->response_tables_info[$table]['fields'][$field]['title'] = $props['table_key'];
-                                }
+
                                 if (isset($props['sizes']) && $props['sizes']) {
                                     $this->response_tables_info[$table]['fields'][$field]['image_sizes'] = $props['sizes'];
-                                }
-                                if (isset($props['origin']) && $props['origin']) {
-                                    $this->response_tables_info[$table]['fields'][$field]['origin'] = $props['origin'];
                                 }
                             }
                         }
