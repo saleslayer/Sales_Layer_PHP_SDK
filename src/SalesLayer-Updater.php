@@ -9,8 +9,8 @@
  *
  * SalesLayer Updater database class is a library for update and connection to Sales Layer API
  *
- * @modified 2023-04-03
- * @version 1.36
+ * @modified 2023-09-23
+ * @version 1.38
  *
  */
 
@@ -20,7 +20,7 @@ else if                           (!class_exists('slyr_SQL'))        require_onc
 
 class SalesLayer_Updater extends SalesLayer_Conn {
 
-    public  $updater_version    = '1.36';
+    public  $updater_version    = '1.38';
 
     public  $database           = null;
     public  $username           = null;
@@ -2461,7 +2461,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
      * Get list field values translated
      *
      * @param string $language (ISO 639-1)
-     * @return array
+     * @return mixed
      *
      */
 
@@ -2507,15 +2507,13 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                     }
                 }
 
-                if($return_as_string){
-
-                    return implode(',', $result);
-
-                } else {
-
-                    return $result;
-                }
+                $values = $result;
             }
+
+        }
+
+        if($return_as_string){
+            $values = implode(',', $values);
         }
 
         return $values;
@@ -3341,7 +3339,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                 }
             }
 
-            $SQL = "select SQL_CACHE count(1) as total from `$sly_table`";
+            $SQL = "select count(1) as total from `$sly_table`";
 
             if (!empty($tables_db)) {
 
@@ -3352,7 +3350,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
             if ($sql_group) {
 
-                $SQL = 'select SQL_CACHE count(1) as total from ('.preg_replace('/^(select\s+)SQL_CACHE\s+/i', '\\1', $SQL).' group by '.$sql_group.') as q';
+                $SQL = 'select count(1) as total from ('.preg_replace('/^(select\s+)SQL_CACHE\s+/i', '\\1', $SQL).' group by '.$sql_group.') as q';
             }
 
             $res = $this->DB->execute($this->add_to_debug($SQL));
@@ -3608,7 +3606,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
 
                     $clause = '';
 
-                    if  (isset($param['search']) && $param['search']) {
+                    if  (isset($param['search']) && $param['search'] !== '') {
 
                         $sfields = (is_array($param['field']) ? $param['field'] : explode(',', $param['field']));
                         $sfields = array_unique($sfields);
@@ -3663,7 +3661,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                         if ($fgroup) {
 
                             $clause = ((isset($param['strict']) && $param['strict']) ? 'BINARY ' : '').
-                                      'lower('.($ngroup > 1 ? "concat($fgroup)" : $fgroup).") like '%".addslashes(strtolower($param['search']))."%'";
+                                      'lower('.($ngroup > 1 ? "concat($fgroup)" : $fgroup).") like LOWER('%".addslashes($param['search'])."%')";
                         }
 
                     } else if (isset($param['value']) && $db_field = $this->get_real_field($param['field'], $table, $language)) {
@@ -3743,7 +3741,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
             if (!is_array($group)) { $group = [ $group ]; }
             else                   { $group = array_unique($group); }
 
-            foreach ($group as $field) {
+            foreach ($group as $k => $field) {
 
                 $field = $this->exists_field_in_schema($field, $schema, $schema_names);
 
@@ -3777,6 +3775,7 @@ class SalesLayer_Updater extends SalesLayer_Conn {
                                     $sql_group .= ($sql_group ? ', ' : '').$new_group;
                                 }
                             }
+                            unset($group[$k]);
                         }
                     }
                 }
