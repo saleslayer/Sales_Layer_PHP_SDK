@@ -11,7 +11,7 @@
 
 ## Description
 
-This SDK contains all the logic and connection methods to Sales Layer’s customizable API. And you can find more detailed documentation at our [website](https://support.saleslayer.com/category/api-sdk-examples "Title").
+This SDK contains all the logic and connection methods to Sales Layer’s customizable API. And you can find more detailed documentation at our [website](https://support.saleslayer.com/es/support/solutions/folders/206000102473 "Title").
 
 ## Requirements
 
@@ -71,9 +71,7 @@ if ($SLconn->has_response_error()) {
 
 ## Documentation & Important notes
 
-> :warning: **A Sales Layer account might be needed to access the documentation**
+##### [PHP SDK Examples](https://support.saleslayer.com/es/support/solutions/articles/206000066839-1-exportaci%C3%B3n-simple)
 
-##### PHP SDK Examples https://support.saleslayer.com/api-sdk-examples/example-1-simple-export
-
-##### API Documentation https://support.saleslayer.com/api/introduction
+##### [API Documentation](https://support.saleslayer.com/es/support/solutions/folders/206000100924)
 
